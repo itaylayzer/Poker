@@ -374,6 +374,7 @@ export default function (
     }
 
     function _socketInitiate() {
+        console.log("socket initate");
         function goldenCards() {
             console.log("%c\n===========\ngolden cards", "font-family:consolas; color:green");
             const allCards = [...boardManager.currentValues, ...localPlayer.cardsvalues];
@@ -528,6 +529,7 @@ export default function (
             }, 2000);
         });
         socket.on("jnbl", (isJoinable: number) => {
+            console.log("isJoinable", isJoinable);
             switch (isJoinable) {
                 case 0:
                     socket.emit("n", name);
@@ -561,6 +563,8 @@ export default function (
 
             xonline.handleLook(args.x, args.y);
         });
+
+        socket.emit("jnbl");
     }
 
     // Init function

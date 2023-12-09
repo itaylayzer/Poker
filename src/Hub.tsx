@@ -7,17 +7,19 @@ function Hub(args: { SetName: React.Dispatch<React.SetStateAction<string | undef
             <Title>Poker Hub</Title>
             <div className="page hub">
                 <div className="center">
-                    <div
-                        onClick={() => {
-                            document.location.href = "/";
-                        }}
-                        className="header"
-                    >
+                    <div className="header">
                         <div className="img-header">
                             {/* <img src="iconclean.png" alt="" /> */}
                             <h3>Poker</h3>
                         </div>
-                        <h5>@coder-1t45</h5>
+                        <h5
+                            onClick={() => {
+                                document.location.href = "https://coder-1t45.github.io/";
+                            }}
+                        >
+                            @coder-1t45
+                            <img src="smallheart.png" alt="" style={{ height: 25, width: 25, marginBlock: "auto", translate: "5px 5px" }} />
+                        </h5>
                     </div>
                     <input
                         type="text"
@@ -49,10 +51,10 @@ function Hub(args: { SetName: React.Dispatch<React.SetStateAction<string | undef
 }
 
 function Join({ name }: { name: string }) {
-    return <App name={name} ip="coder-1t45-trial-poker" />;
+    return <App name={name} ip="coder-1t45-poker" />;
 }
 function Create({ name }: { name: string }) {
-    return <App name={name} ip="coder-1t45-trial-poker" create={true} />;
+    return <App name={name} ip="coder-1t45-poker" create={true} />;
 }
 
 function Switch() {
@@ -62,9 +64,9 @@ function Switch() {
     if (name !== undefined) {
         switch (screen) {
             case 1:
-                return <Join name={name ?? "error getting name"} />;
+                return <Join name={name} />;
             case 2:
-                return <Create name={name ?? "error getting name"} />;
+                return <Create name={name} />;
             default:
                 return <Hub SetName={SetName} SetScreen={SetScreen} />;
         }

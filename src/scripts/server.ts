@@ -187,11 +187,15 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
     }
     const xserver = new Server(
         (socket) => {
+            console.log("new socket connection", gameStarted ? 1 : ordered.size >= 8 ? 2 : 0);
             // joinable
-            socket.emit("jnbl", gameStarted ? 1 : ordered.size >= 8 ? 2 : 0);
-
+            socket.on("jnbl", () => {
+                socket.emit("jnbl", gameStarted ? 1 : ordered.size >= 8 ? 2 : 0);
+            });
+            console.log("pass emitting");
             let player: Player;
             socket.on("n", (name: string) => {
+                console.log(name);
                 player = {
                     id: socket.id,
                     socket,
@@ -262,7 +266,7 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
 
 export function ios(uri: string): Promise<{ socket: Socket; server: ActionList | undefined }> {
     return new Promise<{ socket: Socket; server: ActionList | undefined }>((resolve) => {
-        io(uri, 500)
+        io(uri, 2500)
             .then((sock) => {
                 resolve({ socket: sock, server: undefined });
             })

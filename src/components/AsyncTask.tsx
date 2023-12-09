@@ -10,8 +10,11 @@ export default function AsyncTask<T>(args: {
     const [reason, SetReason] = useState<any>();
     useEffect(() => {
         args.task()
-            .then((v) => SetValue(v))
+            .then((v) => {
+                console.log("finishedTask");
+                SetValue(v);
+            })
             .catch((r) => SetReason(r));
-    });
+    }, []);
     return value === undefined && reason === undefined ? <>{args.meanwhile}</> : value !== undefined ? args.resolve(value) : args.reject(reason);
 }

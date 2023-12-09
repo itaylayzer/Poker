@@ -22,22 +22,19 @@ function App({ name, data, socket }: { data: loadedAssets; name: string; socket:
     const [state, SetState] = useState<string>();
     const [winName, setWinName] = useState<string | undefined>();
     useEffect(() => {
-        const connect = async () => {
-            document.title = "Poker";
-            game(name, {
-                assets: data,
-                socket: socket.socket,
-                server: socket.server,
-                react: {
-                    SetAction,
-                    SetBalance,
-                    SetState,
-                    SetPList,
-                    setWinName,
-                },
-            });
-        };
-        connect();
+        document.title = "Poker";
+        game(name, {
+            assets: data,
+            socket: socket.socket,
+            server: socket.server,
+            react: {
+                SetAction,
+                SetBalance,
+                SetState,
+                SetPList,
+                setWinName,
+            },
+        });
     }, []);
     return (
         <>
@@ -166,12 +163,22 @@ export default function (args: { name: string; ip?: string; create?: boolean }) 
                 }
                 return connectionResult;
             }}
-            meanwhile={<p>loading</p>}
+            meanwhile={
+                <article className="progress">
+                    <main>
+                        <img src="iconclean.png" />
+                    </main>
+                </article>
+            }
             reject={(r) => (
-                <p>
-                    Networking Problem: {r}
-                    <br /> JSON Format {JSON.stringify(r)}
-                </p>
+                <article className="progress">
+                    <main>
+                        <p>
+                            Networking Problem: {r}
+                            <br /> JSON Format {JSON.stringify(r)}
+                        </p>
+                    </main>
+                </article>
             )}
             resolve={(sock) => <AssetLoader assets={urls} resolve={(data) => <App data={data} name={args.name} socket={sock} />} />}
         />

@@ -27,12 +27,15 @@ export function io(uri: string, maxtime: number = 5000): Promise<Socket> {
                 resolve(sock);
             });
             dataConnection.on("error", (r) => {
+                peer.disconnect();
+                dataConnection.close();
                 reject(r.message);
             });
         });
 
         peer.on("error", (error) => {
             console.error("PeerJS error:", error);
+            peer.disconnect();
             // Reject the Promise if there's an error.
             reject(error);
         });
