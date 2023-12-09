@@ -11,7 +11,6 @@ export default function AsyncTask<T>(args: {
     useEffect(() => {
         args.task()
             .then((v) => {
-                console.log("finishedTask");
                 SetValue(v);
             })
             .catch((r) => SetReason(r));

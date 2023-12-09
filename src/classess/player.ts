@@ -2,7 +2,8 @@ import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 import * as THREE from "three";
 import { clamp } from "../scripts/functions";
 import { CardTextureManager } from "./textureManager";
-import { /*CCDIKSolver,*/ IKS } from "three/examples/jsm/animation/CCDIKSolver.js";
+import { TransformControls } from "three/addons/controls/TransformControls.js";
+import { CCDIKSolver, IKS, CCDIKHelper } from "three/examples/jsm/animation/CCDIKSolver.js";
 
 export class Player {
     public cards: THREE.Mesh[];
@@ -59,12 +60,16 @@ export function BonesOBJID(object: THREE.Object3D) {
 export class OnlinePlayer extends Player {
     public body: THREE.Object3D;
     public name: string;
-    // public iksolver: CCDIKSolver;
-
+    public iksolver: CCDIKSolver;
+    public ccdikhelper: CCDIKHelper;
+    public tcontrols: TransformControls;
     public static textureManager: CardTextureManager;
     public static playerBody: THREE.Object3D;
-    constructor(name: string) {
+    constructor(name: string, tcontrols: TransformControls) {
         super();
+        this.tcontrols = tcontrols;
+
+        this;
         this.name = name;
         this.body = SkeletonUtils.clone(OnlinePlayer.playerBody);
         this.body.scale.multiplyScalar(0.013);
@@ -83,41 +88,35 @@ export class OnlinePlayer extends Player {
         }
 
         this.cards = [createMesh(), createMesh()];
-        // console.warn("got here: a");
-        // const iks = this.attachHands();
-        // try {
-        //     this.iksolver = new CCDIKSolver(this.body as THREE.SkinnedMesh, iks);
-        // } catch (e) {
-        //     console.error(e);
-        // }
-        // // console.warn("got here: b");
+        console.warn("got here: a");
+        const iks = this.attachHands();
+        this.movHands();
+        console.log("iks", iks);
+        try {
+            console.log(this.body);
+            this.iksolver = new CCDIKSolver(this.body as THREE.SkinnedMesh, iks);
+            this.ccdikhelper = new CCDIKHelper(this.body as THREE.SkinnedMesh, iks, 0.01);
+        } catch (e) {
+            console.error(e);
+        }
+        // console.warn("got here: b");
     }
     movHands() {
         const rightHand = findBoneByName(this.body, "mixamorigRightHand");
         const leftHand = findBoneByName(this.body, "mixamorigLeftHand");
+
         if (rightHand == null || leftHand == null) {
-            // console.log("nulls");
+            console.log("nulls");
         } else {
+            this.tcontrols.attach(leftHand);
             this.cards[0].matrix;
-            // rightHand.position.copy();
-            const vec = new THREE.Vector3();
-            this.cards[0].getWorldPosition(vec);
-            leftHand.position.copy(vec);
-            leftHand.position.x /= this.body.scale.x;
-            leftHand.position.y /= this.body.scale.y;
-            leftHand.position.z /= this.body.scale.z;
-            // leftHand.position.copy(leftHand.worldToLocal(.clone()));
         }
     }
     attachHands(): IKS[] {
-        const rightHand = findBoneByName(this.body, "mixamorigRightHand");
-        const leftHand = findBoneByName(this.body, "mixamorigLeftHand");
-        if (rightHand == null || leftHand == null) throw Error("nulls");
-        // console.warn("got here: aa", rightHand == null || leftHand == null);
         this.movHands();
-        // console.warn("got here: ab");
+        console.warn("got here: ab");
         const obj = BonesOBJID(this.body);
-        // console.warn("got here: ac", obj);
+        console.warn("got here: ac", obj);
         const rightIKS: IKS = {
             target: obj.mixamorigRightHand,
             effector: obj.mixamorigRightForeArm,
@@ -128,8 +127,8 @@ export class OnlinePlayer extends Player {
             effector: obj.mixamorigLefttForeArm,
             links: [{ index: obj.mixamorigLeftShoulder }, { index: obj.mixamorigLeftArm }, { index: obj.mixamorigLefttForeArm }],
         };
-        // console.warn("got here: ad");
-        return [leftIKS, rightIKS];
+        console.warn("got here: ad");
+        return [rightIKS];
     }
     add(scene: THREE.Scene) {
         for (const xmesh of this.cards) {
@@ -163,7 +162,7 @@ export class OnlinePlayer extends Player {
     handleLook(x: number, y: number) {
         const bone = findBoneByName(this.body, "mixamorigHead");
         if (!bone) {
-            // console.log("head bone is null", this.body.children);
+            console.log("head bone is null", this.body.children);
             throw Error("head bone is null");
         }
 
@@ -182,7 +181,7 @@ export class OnlinePlayer extends Player {
         }
 
         this.movHands();
-        // this.iksolver.update();
+        this.iksolver.update();
     }
     dispose(scene: THREE.Scene) {
         for (const xmesh of this.cards) {

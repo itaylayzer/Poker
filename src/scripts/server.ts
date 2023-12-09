@@ -56,7 +56,7 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
         boardCards = [];
         for (let i = 0; i < 5; i++) boardCards.push(packet.next());
         if (cardsBrain(boardCards, new Map()).twoPair() !== false) return initRound();
-        console.log("[server]", "boardcards", boardCards);
+        // console.log("[server]", "boardcards", boardCards);
         for (const xplayer of clients.values()) {
             xplayer.c1 = packet.next();
             xplayer.c2 = packet.next();
@@ -103,7 +103,7 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
         for (const player of clients.values()) {
             player.roundCoins = 0;
         }
-        console.log("socket.all(win)");
+        // console.log("socket.all(win)");
         sockets.all("win", playerScores);
         setTimeout(() => {
             initRound(); //set timout of a 5 seconds, later it will the player judge
@@ -122,17 +122,17 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
             if (args) {
                 // Call case
                 // get last player
-                console.log("%c[server]", "color:red", "call");
+                // console.log("%c[server]", "color:red", "call");
                 player.roundCoins = lastMoney;
             } else {
                 // Fold case
-                console.log("%c[server]", "color:red", "fold");
+                // console.log("%c[server]", "color:red", "fold");
                 roundSet.delete(player.id);
                 current--;
             }
         } else {
             // Raise case
-            console.log("%c[server]", "color:red", "raise");
+            // console.log("%c[server]", "color:red", "raise");
             player.roundCoins = lastMoney + args;
         }
         player.balance -= player.roundCoins - oldRoundCoin;
@@ -143,11 +143,11 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
     }
     function finishedTurn(player: Player) {
         const alteastOnePlayerHaveBalance = Array.from(clients.values()).filter((v) => v.balance > 0 && roundSet.has(v.id)).length;
-        console.log(
-            "Array.from(clients.values()).filter((v) => v.balance > 0 && roundSet.has(v.id)).length",
-            Array.from(clients.values()).filter((v) => v.balance > 0 && roundSet.has(v.id)).length,
-            alteastOnePlayerHaveBalance
-        );
+        // console.log(
+        //     "Array.from(clients.values()).filter((v) => v.balance > 0 && roundSet.has(v.id)).length",
+        //     Array.from(clients.values()).filter((v) => v.balance > 0 && roundSet.has(v.id)).length,
+        //     alteastOnePlayerHaveBalance
+        // );
         if (
             // if someone atleast have balance
             alteastOnePlayerHaveBalance > 1 &&
@@ -187,15 +187,15 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
     }
     const xserver = new Server(
         (socket) => {
-            console.log("new socket connection", gameStarted ? 1 : ordered.size >= 8 ? 2 : 0);
+            // console.log("new socket connection", gameStarted ? 1 : ordered.size >= 8 ? 2 : 0);
             // joinable
             socket.on("jnbl", () => {
                 socket.emit("jnbl", gameStarted ? 1 : ordered.size >= 8 ? 2 : 0);
             });
-            console.log("pass emitting");
+            // console.log("pass emitting");
             let player: Player;
             socket.on("n", (name: string) => {
-                console.log(name);
+                // console.log(name);
                 player = {
                     id: socket.id,
                     socket,
@@ -223,7 +223,7 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
                 }
             });
             socket.on("act", (args: boolean | number) => {
-                console.log("%c[server]", "color:red", "current", current);
+                // console.log("%c[server]", "color:red", "current", current);
                 const lastMoney = clients.get(Array.from(roundSet)[(current - 1 + roundSet.size) % roundSet.size])?.roundCoins ?? player.roundCoins;
                 actionDo(args, player, lastMoney);
                 ++current;
@@ -232,7 +232,7 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
                 sockets.all("bl", { id: socket.id, b: player.balance });
                 // see whats next for the game
                 finishedTurn(player);
-                console.log("%c[server]", "color:red", "current after", current);
+                // console.log("%c[server]", "color:red", "current after", current);
             });
             socket.on("mse", (args: { x: number; y: number }) => {
                 sockets.except(socket.id, "mse", { ...args, id: socket.id });
@@ -266,7 +266,7 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
 
 export function ios(uri: string): Promise<{ socket: Socket; server: ActionList | undefined }> {
     return new Promise<{ socket: Socket; server: ActionList | undefined }>((resolve) => {
-        io(uri, 2500)
+        io(uri, 1000)
             .then((sock) => {
                 resolve({ socket: sock, server: undefined });
             })

@@ -3,9 +3,6 @@ export function io(uri: string, maxtime: number = 5000): Promise<Socket> {
     return new Promise((resolve, reject) => {
         const peer = new Peer({
             debug: 0,
-            // logFunction: (...data: any[]) => {
-            //     console.log("client: ", ...data);
-            // },
             secure: false,
             port: 9000,
             host: "127.0.0.1",

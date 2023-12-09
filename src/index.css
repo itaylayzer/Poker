@@ -279,6 +279,12 @@ div.page.hub div.center {
   background-color: rgb(0, 0, 0, 0);
 }
 
+div.page.hub div.center.aside {
+  left: 50%;
+  display: flex;
+  ;
+}
+
 div.page.hub div.center div.header div.img-header {
   font-size: 150px;
   color: white;
@@ -318,6 +324,12 @@ div.page.hub div.center div.header div.img-header img {
   }
 }
 
+div.page.hub div.center.aside img.hubanimcards {
+  animation: scaleupStart3 .9s cubic-bezier(.14, 1.6, .61, 1);
+  scale: 0.8;
+  filter: drop-shadow(10px 10px 0px rgb(255, 255, 255, 5%)) drop-shadow(0px 0px 25px rgb(255, 255, 255, 25%)) drop-shadow(0px 0px 5px rgb(255, 255, 255, 50%)) drop-shadow(0px 0px 100px rgb(255, 255, 255, 10%));
+}
+
 @keyframes scaleupStart {
   0% {
     scale: 0
@@ -339,6 +351,23 @@ div.page.hub div.center div.header div.img-header img {
 
   100% {
     scale: 1
+  }
+}
+
+@keyframes scaleupStart3 {
+  0% {
+    scale: 0;
+  }
+
+  66% {
+    scale: 0;
+    filter: none;
+    opacity: 0;
+  }
+
+  100% {
+    scale: 0.8;
+    filter: drop-shadow(10px 10px 0px rgb(255, 255, 255, 5%)) drop-shadow(0px 0px 25px rgb(255, 255, 255, 25%)) drop-shadow(0px 0px 5px rgb(255, 255, 255, 50%)) drop-shadow(0px 0px 100px rgb(255, 255, 255, 10%));
   }
 }
 
@@ -415,6 +444,80 @@ div.page.hub div.center button:hover {
     0px 0px 1.5px white,
     0px 0px 1.5px white;
   background-color: rgb(10, 10, 10);
+}
+
+div.page.hub div.center div.credits h2 {
+  text-align: center;
+  margin: 0;
+  font-size: 50px;
+  font-weight: 100;
+  color: white;
+}
+
+div.page.hub div.center div.credits p {
+  margin: 0;
+  color: white;
+  font-size: 30px;
+  font-style: italic;
+  color: rgb(255, 255, 255, 50%);
+  text-transform: lowercase;
+  font-weight: 100;
+}
+
+div.page.hub div.center div.credits p a {
+  font-family: "Roboto";
+  font-weight: 900;
+  font-style: normal;
+  font-size: 35px;
+  color: rgb(255, 255, 255, 100%);
+  text-decoration: none;
+
+  text-transform: capitalize;
+}
+
+div.page.hub div.center div.credits p a:hover {
+  color: rgb(65, 131, 255)
+}
+
+div.page.hub footer {
+  position: absolute;
+  bottom: 0%;
+  left: 50%;
+  translate: -50% 0%;
+  display: flex;
+  gap: 10px;
+}
+
+div.page.hub footer button {
+  outline: 0;
+  border: 0;
+  background-color: rgb(25, 25, 25);
+  color: white;
+  font-family: monospace;
+  font-size: 25px;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  padding-inline: 10px;
+  cursor: pointer;
+  transition: box-shadow .3s cubic-bezier(.14, 1.6, .61, 1), background-color .3s cubic-bezier(.14, 1.6, .61, 1);
+  min-width: 175px;
+}
+
+div.page.hub footer button:hover {
+
+  box-shadow:
+    0px 0px 1.5px white,
+    0px 0px 1.5px white,
+    0px 0px 1.5px white,
+    0px 0px 1.5px white,
+    0px 0px 1.5px white,
+    0px 0px 1.5px white,
+    0px 0px 1.5px white,
+    0px 0px 1.5px white,
+    0px 0px 1.5px white,
+    0px 0px 1.5px white;
+  background-color: rgb(10, 10, 10);
+
 }
 
 article.progress {

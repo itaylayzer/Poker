@@ -16,6 +16,7 @@ import { LocalPlayer, OnlinePlayer } from "../classess/player";
 import { toast } from "react-toastify";
 import { clamp } from "./functions";
 import CardsAPI from "./cards";
+import { TransformControls } from "three/addons/controls/TransformControls.js";
 
 export const urls: loadedURLS = {
     green: "textures/green500x500.png",
@@ -374,14 +375,13 @@ export default function (
     }
 
     function _socketInitiate() {
-        console.log("socket initate");
         function goldenCards() {
-            console.log("%c\n===========\ngolden cards", "font-family:consolas; color:green");
+            // console.log("%c\n===========\ngolden cards", "font-family:consolas; color:green");
             const allCards = [...boardManager.currentValues, ...localPlayer.cardsvalues];
-            console.log("\tcards", allCards);
+            // console.log("\tcards", allCards);
             const stateResult = CardsAPI.state(allCards);
             const cards = stateResult.cards.map((v) => (v % 100 === 14 ? v - 13 : v));
-            console.log("%c\tstate result cards", "font-family:consolas; color:green", stateResult.stateId, cards);
+            // console.log("%c\tstate result cards", "font-family:consolas; color:green", stateResult.stateId, cards);
             const playerMeshes = Array.from(localPlayer.cardsValToMesh.keys())
                 .filter((val) => cards.includes(val))
                 .map((v) => {
@@ -390,17 +390,17 @@ export default function (
                 });
             const boardMeshes = boardManager.getMeshes(cards);
             const meshes = playerMeshes.concat(boardMeshes).filter((v) => v !== undefined);
-            console.log(
-                "%c\tall",
-                "font-family:consolas; color:green",
-                meshes,
-                "%cboard",
-                "font-family:consolas; color:green",
-                boardMeshes,
-                "%cplayer",
-                "font-family:consolas; color:green",
-                playerMeshes
-            );
+            // console.log(
+            //     "%c\tall",
+            //     "font-family:consolas; color:green",
+            //     meshes,
+            //     "%cboard",
+            //     "font-family:consolas; color:green",
+            //     boardMeshes,
+            //     "%cplayer",
+            //     "font-family:consolas; color:green",
+            //     playerMeshes
+            // );
             outlinePass.selectedObjects = meshes;
 
             const statesArr: string[] = [
@@ -439,17 +439,26 @@ export default function (
                 player.position(vec, new THREE.Vector3(0, 0, 0));
             });
         }
+        function getTransformsControls() {
+            const transformControls = new TransformControls(camera, renderer.domElement);
+            transformControls.size = 0.75;
+            // transformControls.showX = false;
+            transformControls.space = "world";
+            // transformControls.attach( OOI.target_hand_l );
+            scene.add(transformControls);
+            return transformControls;
+        }
 
         socket.on("i", (args: { op: { [k: string]: string } }) => {
-            console.log(socket.id, args);
+            // console.log(socket.id, args);
             for (const p of Array.from(Object.entries(args.op))) {
-                const xonline = new OnlinePlayer(p[1]);
+                const xonline = new OnlinePlayer(p[1], getTransformsControls());
                 clients.set(p[0], xonline);
                 xonline.add(scene);
                 // reposition every player in a circle
             }
             orderOnlines();
-            console.log("clients", clients);
+            // console.log("clients", clients);
             react.SetAction({
                 slider: undefined,
                 functions: {
@@ -466,7 +475,7 @@ export default function (
             );
         });
         socket.on("n-p", (args: { id: string; n: string }) => {
-            const xonline = new OnlinePlayer(args.n);
+            const xonline = new OnlinePlayer(args.n, getTransformsControls());
             clients.set(args.id, xonline);
             xonline.add(scene);
             react.SetPList(
@@ -478,7 +487,7 @@ export default function (
             orderOnlines();
         });
         socket.on("st", (args: { b: number[]; c1: number; c2: number }) => {
-            console.log("[client]", "args.boardcards", args.b);
+            // console.log("[client]", "args.boardcards", args.b);
             boardManager = new BoardManager(args.b, scene, cardTextures);
             boardManager.OpenRound().then(() => goldenCards());
             localPlayer.cardsvalues = [args.c1, args.c2];
@@ -516,20 +525,20 @@ export default function (
         });
         socket.on("win", (args: { [key: string]: number }) => {
             // alert(str);
-            console.log("win 1");
+            // console.log("win 1");
             const winnerId = Object.keys(args).reduce((a, b) => (args[a] > args[b] ? a : b));
-            console.log("win 2");
+            // console.log("win 2");
             const clientIsWinner = socket.id === winnerId;
-            console.log("win 3");
-            console.log("clientIsWinner", clientIsWinner);
-            console.log(clientIsWinner ? "YOU WON" : `${clients.get(winnerId)?.name} WIN`);
+            // console.log("win 3");
+            // console.log("clientIsWinner", clientIsWinner);
+            // console.log(clientIsWinner ? "YOU WON" : `${clients.get(winnerId)?.name} WIN`);
             react.setWinName(clientIsWinner ? "YOU WON" : `${clients.get(winnerId)?.name} WIN`);
             setTimeout(() => {
                 react.setWinName(undefined);
             }, 2000);
         });
         socket.on("jnbl", (isJoinable: number) => {
-            console.log("isJoinable", isJoinable);
+            // console.log("isJoinable", isJoinable);
             switch (isJoinable) {
                 case 0:
                     socket.emit("n", name);

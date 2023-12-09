@@ -86,7 +86,6 @@ export function loadMeshes(items: { [key: string]: string }, SetProgress:React.D
                 );
             }
             else if (x[1].endsWith(".typeface.json")){
-                // console.log(x[1])
                 fontLoader.load(
                     x[1],
                     (font) => {
@@ -108,10 +107,6 @@ export function loadMeshes(items: { [key: string]: string }, SetProgress:React.D
         }
 
         loadingManager.onLoad = () => {
-            // console.log(`Loaded FBX`, JSON.stringify(Array.from(Object.keys(l.fbx))));
-            // console.log(`Loaded GLTF`, JSON.stringify(Array.from(Object.keys(l.gltf))));
-            // console.log(`Loaded Textures`, JSON.stringify(Array.from(Object.keys(l.textures))));
-            // console.log(`Loaded Fonts`, JSON.stringify(Array.from(Object.keys(l.fonts))));
             SetProgress(1);
             resolve(l);
         };
