@@ -1,4 +1,4 @@
-// credits and all are found in line 63 and below.
+// credits and all are found in line 103 and below.
 // @coder-1t45 property!
 import { findAllMatchingValues, findLongestSequence } from "./functions";
 
@@ -29,9 +29,18 @@ export const cardsBrain = function (nSortedCards: number[], objDuplicates: Map<s
         threeOfAKind() {
             return listhasgetfalse("3");
         },
-        straight(): boolean | number[] {
-            const best = findLongestSequence(nSortedCards, (a, b) => a % _CONST_SHAPE_STEP === (b % _CONST_SHAPE_STEP) - 1);
-            if (best.length > 4) return best;
+        straight(arr: number[] = nSortedCards): false | number[] {
+            let aceSpecialCase = [...arr].map((v) => {
+                if (v % _CONST_SHAPE_STEP === 1) return Math.floor(v / _CONST_SHAPE_STEP) * _CONST_SHAPE_STEP + 14;
+                else return v;
+            });
+            aceSpecialCase.sort((a, b) => (a % _CONST_SHAPE_STEP) - (b % _CONST_SHAPE_STEP));
+            const compareFN = (a: number, b: number) => (a % _CONST_SHAPE_STEP) - 1 === b % _CONST_SHAPE_STEP;
+            const best1 = findLongestSequence(arr, compareFN);
+            const best2 = findLongestSequence(aceSpecialCase, compareFN);
+
+            if (best2.length > 4) return best2;
+            if (best1.length > 4) return best1;
             return false;
         },
         flush() {
@@ -43,7 +52,7 @@ export const cardsBrain = function (nSortedCards: number[], objDuplicates: Map<s
                 return shapeDiffrent ? shapeDiffrent : valueDiffrent;
             });
             const best = findLongestSequence(arr, (a, b) => Math.round(a / _CONST_SHAPE_STEP) === Math.round(b / _CONST_SHAPE_STEP));
-            console.warn("\t inside cards.ts flush", best, arr);
+
             if (best.length > 4) return best;
             return false;
         },
@@ -57,19 +66,34 @@ export const cardsBrain = function (nSortedCards: number[], objDuplicates: Map<s
             return listhasgetfalse("4");
         },
         straightFlush() {
-            const best = findLongestSequence(
-                nSortedCards,
-                (a, b) =>
-                    a % _CONST_SHAPE_STEP === (b % _CONST_SHAPE_STEP) - 1 && Math.round(a / _CONST_SHAPE_STEP) == Math.round(b / _CONST_SHAPE_STEP)
-            );
-            if (best.length > 4) return best;
-            return false;
+            const straight = this.straight();
+            const flush = this.flush();
+
+            if (flush === false || straight === false) return false;
+            let set = Array.from(new Set([...straight, ...flush]).values());
+            //remove normal aces
+            if (set.filter((v) => v % _CONST_SHAPE_STEP == 14).length > 0) set = set.filter((v) => v % _CONST_SHAPE_STEP != 1);
+            const newstraight = this.straight(set);
+            if (newstraight === false) return false;
+            else if (newstraight.length > 4) return newstraight;
+            else return false;
         },
         royaleFlush() {
             const straightflush = this.straightFlush();
             if (straightflush === false) return false;
+            console.warn(
+                "\tinside royale flush",
+                straightflush,
+                straightflush[0] % _CONST_SHAPE_STEP === 10,
+                straightflush[straightflush.length - 1] % _CONST_SHAPE_STEP === 14
+            );
             straightflush.sort((a, b) => a - b);
-            return straightflush[0] % _CONST_SHAPE_STEP === 10 && straightflush[straightflush.length - 1] % _CONST_SHAPE_STEP === 13;
+            if (straightflush.filter((v) => v % _CONST_SHAPE_STEP === 10) && straightflush.filter((v) => v % _CONST_SHAPE_STEP === 14)) {
+                return straightflush.filter((v) => {
+                    const cv = v % _CONST_SHAPE_STEP;
+                    return cv > 9 && cv < 15;
+                });
+            } else return false;
         },
     };
 };

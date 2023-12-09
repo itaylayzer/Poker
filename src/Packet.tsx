@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import "react-toastify/dist/ReactToastify.css";
-import cards, { cardsBrain } from "./scripts/cards";
+import cards from "./scripts/cards";
 export default function () {
     const [cPacket, SetPacket] = useState<{ reset: () => void; next: () => number; all: number[] }>();
     const [fillArray, SetFillArray] = useState<Array<number>>([]);
@@ -10,7 +10,7 @@ export default function () {
         SetPacket(cards.packet());
     }, []);
     useEffect(() => {
-        const intla = setInterval(() => {
+        setInterval(() => {
             const nxt = cPacket?.next()!;
             if (fillArray.includes(nxt)) alert("INCLUDES");
             SetFillArray((old) => [...old, nxt]);

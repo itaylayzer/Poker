@@ -3,14 +3,19 @@ import App from "./App.tsx";
 import Packet from "./Packet.tsx";
 import "./index.css";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
+import Hub from "./Hub.tsx";
 const router = createBrowserRouter([
     {
         path: "/Poker/",
-        element: <App />,
+        element: <App name="casualUser" />,
     },
     {
         path: "/Poker/Packet",
         element: <Packet />,
+    },
+    {
+        path: "/Poker/Hub",
+        element: <Hub />,
     },
 ]);
 

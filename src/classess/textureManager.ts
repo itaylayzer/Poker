@@ -1,6 +1,6 @@
 import * as THREE from "three";
 export class CardTextureManager {
-    private readonly x = 15;
+    private readonly x = 7.5;
     private ValueCords(value: number, shape: number): { startX: number; startY: number; endX: number; endY: number } {
         // Logic to determine coordinates for the value symbol in the symbol table based on value and color
         // Example logic, adjust as per your symbol table layout
@@ -59,14 +59,17 @@ export class CardTextureManager {
             Promise.all([valueSymbolTexture.image.onload, shapeSymbolTexture.image.onload])
                 .then(() => {
                     // Use Three.js and canvas manipulation to combine the textures onto the white background
-                    context.fillStyle = shape < 2 ? "#bb2026" : "#141624";
+                    context.fillStyle = "white";
                     context.fillRect(0, 0, canvas.width, canvas.height);
 
+                    context.fillStyle = shape < 2 ? "#bb2026" : "#141624";
+                    context.fillRect(this.x, this.x, canvas.width - this.x * 2, canvas.height - this.x * 2);
+
                     context.fillStyle = shape < 2 ? "#ef5050" : "#2f3a58";
-                    context.fillRect(canvas.width / 2, 0, canvas.width, canvas.height);
+                    context.fillRect(canvas.width / 2, this.x, canvas.width / 2 - this.x * 2, canvas.height - this.x * 2);
 
                     context.fillStyle = "white";
-                    context.fillRect(this.x, this.x, canvas.width - this.x * 2, canvas.height - this.x * 2);
+                    context.fillRect(this.x * 2, this.x * 2, canvas.width - this.x * 4, canvas.height - this.x * 4);
 
                     // context.fillStyle = "white";
                     // context.fillRect(0, 0, canvas.width, canvas.height);

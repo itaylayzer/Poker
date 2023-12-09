@@ -3,8 +3,10 @@ import CardsAPI, { cardsBrain } from "./cards";
 import { ActionList } from "./game";
 interface Player {
     socket: Socket;
+    name: string;
     id: string;
     roundCoins: number;
+    balance: number;
     c1: number;
     c2: number;
     ready: boolean;
@@ -40,7 +42,8 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
         },
     };
     function EqualRoundMoney(num: number) {
-        return Array.from(clients.values()).filter((v) => v.roundCoins === num && roundSet.has(v.id)).length == roundSet.size;
+        const lastPlayers = Array.from(clients.values()).filter((v) => roundSet.has(v.id) && v.balance > 0);
+        return lastPlayers.filter((v) => v.roundCoins === num).length == lastPlayers.length;
     }
     function calculateScore(args: { c1: number; c2: number }): number {
         if (boardCards === undefined) throw Error("board cards are undefined");
@@ -65,7 +68,7 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
             });
         }
         roundSet = new Set(ordered);
-        clients.get(Array.from(roundSet)[current % roundSet.size])?.socket.emit("act");
+        clients.get(Array.from(roundSet)[current % roundSet.size])?.socket.emit("act", 0);
 
         state = 0;
     }
@@ -90,47 +93,93 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
             [key: string]: number;
         } = Object.fromEntries(Array.from(Object.entries(playersCards)).map((v) => [v[0], calculateScore(v[1])]));
 
-        const xdata = { scores: playerScores, money: sumMoney };
-        sockets.all("win", xdata);
+        const winnerId = Object.keys(playerScores).reduce((a, b) => (playerScores[a] > playerScores[b] ? a : b));
+        const winnerPlayer = clients.get(winnerId);
+        if (winnerPlayer) {
+            winnerPlayer.balance += sumMoney;
+            sockets.all("bl", { id: winnerId, b: winnerPlayer.balance });
+        }
+
+        for (const player of clients.values()) {
+            player.roundCoins = 0;
+        }
+        console.log("socket.all(win)");
+        sockets.all("win", playerScores);
         setTimeout(() => {
             initRound(); //set timout of a 5 seconds, later it will the player judge
             round++;
-        }, 0 * 1000);
+        }, 1 * 1000);
     }
     function nextPlayerAct() {
         ++state;
         current = 0;
         sockets.all("nxt");
-        clients.get(Array.from(roundSet)[(current + roundSet.size + roundSet.size) % roundSet.size])?.socket.emit("act");
+        clients.get(Array.from(roundSet)[(current + roundSet.size + roundSet.size) % roundSet.size])?.socket.emit("act", 0);
     }
     function actionDo(args: boolean | number, player: Player, lastMoney: number) {
-        if (args === true) {
-            // Call case
-            // get last player
-
-            player.roundCoins = lastMoney;
-        } else if (args === false) {
-            // Fold case
-            roundSet.delete(player.id);
-            current--;
+        let oldRoundCoin = player.roundCoins;
+        if (typeof args === "boolean") {
+            if (args) {
+                // Call case
+                // get last player
+                console.log("%c[server]", "color:red", "call");
+                player.roundCoins = lastMoney;
+            } else {
+                // Fold case
+                console.log("%c[server]", "color:red", "fold");
+                roundSet.delete(player.id);
+                current--;
+            }
         } else {
             // Raise case
-            // console.log("lastMoney", lastMoney, "args", args); FIXME: check it
+            console.log("%c[server]", "color:red", "raise");
             player.roundCoins = lastMoney + args;
+        }
+        player.balance -= player.roundCoins - oldRoundCoin;
+        if (player.balance < 0) {
+            player.roundCoins += -player.balance;
+            player.balance = 0;
         }
     }
     function finishedTurn(player: Player) {
+        const alteastOnePlayerHaveBalance = Array.from(clients.values()).filter((v) => v.balance > 0 && roundSet.has(v.id)).length;
+        console.log(
+            "Array.from(clients.values()).filter((v) => v.balance > 0 && roundSet.has(v.id)).length",
+            Array.from(clients.values()).filter((v) => v.balance > 0 && roundSet.has(v.id)).length,
+            alteastOnePlayerHaveBalance
+        );
         if (
-            (current < roundSet.size && EqualRoundMoney(player.roundCoins)) ||
-            (current >= roundSet.size && !EqualRoundMoney(player.roundCoins) && roundSet.size > 1)
+            // if someone atleast have balance
+            alteastOnePlayerHaveBalance > 1 &&
+            // and the size is beyond 1
+            roundSet.size > 1 && // and
+            // current < size or current >= roundset.size and money not equals
+            (current < roundSet.size || (current >= roundSet.size && !EqualRoundMoney(player.roundCoins)))
         ) {
             // Ask another player
-            clients.get(Array.from(roundSet)[(current + roundSet.size) % roundSet.size])?.socket.emit("act");
+            let nxt_player_id = Array.from(roundSet)[(current + roundSet.size) % roundSet.size];
+            let nxt_player_p = clients.get(nxt_player_id);
+            while (nxt_player_p === undefined || nxt_player_p.balance === 0) {
+                nxt_player_id = Array.from(roundSet)[(++current + roundSet.size) % roundSet.size];
+                nxt_player_p = clients.get(nxt_player_id);
+            }
+            nxt_player_p?.socket.emit("act", player.roundCoins - nxt_player_p.roundCoins);
         } else {
             // Continue to next
-            if (state >= 2 || (roundSet.size === 1 && ordered.size !== 1)) {
-                // win
-                checkWin();
+            if (state >= 2 || ((alteastOnePlayerHaveBalance <= 1 || roundSet.size === 1) && ordered.size !== 1)) {
+                function movingNext() {
+                    setTimeout(() => {
+                        if (state >= 2) {
+                            checkWin();
+                            return;
+                        }
+                        ++state;
+                        current = 0;
+                        sockets.all("nxt");
+                        movingNext();
+                    }, 1000);
+                }
+                movingNext();
             } else {
                 nextPlayerAct();
             }
@@ -139,10 +188,10 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
     const xserver = new Server(
         (socket) => {
             // joinable
-            socket.emit("jnbl", gameStarted ? 1 : ordered.size >= 4 ? 2 : 0);
+            socket.emit("jnbl", gameStarted ? 1 : ordered.size >= 8 ? 2 : 0);
 
             let player: Player;
-            socket.on("n", () => {
+            socket.on("n", (name: string) => {
                 player = {
                     id: socket.id,
                     socket,
@@ -150,15 +199,16 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
                     c1: 0,
                     c2: 0,
                     ready: false,
+                    balance: 1000,
+                    name: name,
                 };
+                const oldp = Object.fromEntries(Array.from(clients.values()).map((player) => [player.id, player.name]));
                 socket.emit("i", {
-                    c1: player.c1,
-                    c2: player.c2,
-                    op: Array.from(clients.keys()),
+                    op: oldp,
                 });
                 clients.set(socket.id, player);
                 ordered.add(socket.id);
-                sockets.except(socket.id, "n-p", socket.id);
+                sockets.except(socket.id, "n-p", { id: socket.id, n: name });
             });
             socket.on("r", () => {
                 gameStarted = true;
@@ -169,18 +219,23 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
                 }
             });
             socket.on("act", (args: boolean | number) => {
+                console.log("%c[server]", "color:red", "current", current);
                 const lastMoney = clients.get(Array.from(roundSet)[(current - 1 + roundSet.size) % roundSet.size])?.roundCoins ?? player.roundCoins;
                 actionDo(args, player, lastMoney);
                 ++current;
 
+                // send the player his balance
+                sockets.all("bl", { id: socket.id, b: player.balance });
                 // see whats next for the game
                 finishedTurn(player);
+                console.log("%c[server]", "color:red", "current after", current);
             });
             socket.on("mse", (args: { x: number; y: number }) => {
                 sockets.except(socket.id, "mse", { ...args, id: socket.id });
             });
             socket.on("disconnect", () => {
                 ordered.delete(socket.id);
+                clients.delete(socket.id);
                 sockets.except(socket.id, "p-d", socket.id);
             });
         },
@@ -191,14 +246,16 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
     );
 
     return {
-        init: () => {
-            initRound();
-        },
-        next: () => {
-            sockets.all("nxt");
-        },
-        close: () => {
-            xserver.stop();
+        functions: {
+            init: () => {
+                initRound();
+            },
+            next: () => {
+                sockets.all("nxt");
+            },
+            close: () => {
+                xserver.stop();
+            },
         },
     } as ActionList;
 }

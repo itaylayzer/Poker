@@ -30,21 +30,36 @@ export type CustomLight = {
     rot?: THREE.Euler;
     type: "point" | "directional" | "ambient";
 };
-export type ActionList = { [key: string]: () => void };
+export type ActionList = {
+    slider?: { min: number; max: number; defaultValue: number; onValue: (args: number) => void; addon: number } | undefined;
+    functions: { [key: string]: (() => void | true) | { function: () => void | true; disabled: () => boolean } };
+};
 
-export default function ({
-    assets,
-    socket,
-    server,
-    react,
-}: {
-    assets: loadedAssets;
-    socket: Socket;
-    server: ActionList | undefined;
-    react: {
-        SetAction: React.Dispatch<ActionList | undefined>;
-    };
-}) {
+export default function (
+    name: string,
+    {
+        assets,
+        socket,
+        server,
+        react,
+    }: {
+        assets: loadedAssets;
+        socket: Socket;
+        server: ActionList | undefined;
+        react: {
+            SetAction: React.Dispatch<ActionList | undefined>;
+            SetBalance: React.Dispatch<number>;
+            SetState: React.Dispatch<string>;
+            SetPList: React.Dispatch<
+                {
+                    name: string;
+                    balance: number;
+                }[]
+            >;
+            setWinName: React.Dispatch<string | undefined>;
+        };
+    }
+) {
     const container = document.querySelector("div.gameContainer") as HTMLDivElement;
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -72,18 +87,52 @@ export default function ({
 
     const camRotation = new THREE.Vector2(0, 1);
     const updates: (() => void)[] = [];
-    const ActionSets = {
+    let val: number = 0;
+    const ActionSets: { default: ActionList; raising: ActionList } = {
         default: {
-            Call: () => {
-                socket.emit("act", true);
+            functions: {
+                Call: () => {
+                    socket.emit("act", true);
+                },
+                Raise: {
+                    disabled: () => (ActionSets.raising.slider ? ActionSets.raising.slider.min > ActionSets.raising.slider.max : true),
+                    function: () => {
+                        if (!ActionSets.raising.slider) throw Error("ActionSets.raising.slider is null");
+
+                        val = ActionSets.raising.slider?.defaultValue!;
+                        react.SetAction(ActionSets.raising);
+                        return true;
+                    },
+                },
+                Fold: () => {
+                    socket.emit("act", false);
+                },
             },
-            Raise: () => {
-                socket.emit("act", 50);
+        } as ActionList,
+        raising: {
+            slider: {
+                defaultValue: 50,
+                max: localPlayer.money,
+                min: 50,
+                onValue(args) {
+                    val = args;
+                },
+                addon: 0,
             },
-            Fold: () => {
-                socket.emit("act", false);
+            functions: {
+                Cancel: () => {
+                    react.SetAction(ActionSets.default);
+                    return true;
+                },
+
+                submit: () => {
+                    socket.emit("act", val);
+                },
+                "all In": () => {
+                    socket.emit("act", localPlayer.money);
+                },
             },
-        },
+        } as ActionList,
     };
     function _createGround() {
         var texture = assets.textures["green"];
@@ -304,11 +353,11 @@ export default function ({
         outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
 
         outlinePass.edgeStrength = 5.0;
-        outlinePass.edgeGlow = 0;
+        outlinePass.edgeGlow = 0.5;
         outlinePass.edgeThickness = 1;
         outlinePass.pulsePeriod = 1;
         outlinePass.visibleEdgeColor = new THREE.Color("ffffff");
-        outlinePass.hiddenEdgeColor = new THREE.Color("190a05");
+        outlinePass.hiddenEdgeColor = new THREE.Color("000000"); //"190a05");
 
         composer.addPass(outlinePass);
 
@@ -326,41 +375,106 @@ export default function ({
 
     function _socketInitiate() {
         function goldenCards() {
-            console.log("\n===========\ngolden cards");
+            console.log("%c\n===========\ngolden cards", "font-family:consolas; color:green");
             const allCards = [...boardManager.currentValues, ...localPlayer.cardsvalues];
             console.log("\tcards", allCards);
             const stateResult = CardsAPI.state(allCards);
-            console.log("\tstate result cards", stateResult.stateId, stateResult.cards);
+            const cards = stateResult.cards.map((v) => (v % 100 === 14 ? v - 13 : v));
+            console.log("%c\tstate result cards", "font-family:consolas; color:green", stateResult.stateId, cards);
             const playerMeshes = Array.from(localPlayer.cardsValToMesh.keys())
-                .filter((val) => stateResult.cards.includes(val))
+                .filter((val) => cards.includes(val))
                 .map((v) => {
                     const xmesh = localPlayer.cardsValToMesh.get(v) as THREE.Mesh;
                     return xmesh;
                 });
-            const boardMeshes = boardManager.getMeshes(stateResult.cards);
+            const boardMeshes = boardManager.getMeshes(cards);
             const meshes = playerMeshes.concat(boardMeshes).filter((v) => v !== undefined);
-            console.log("\tall", meshes, "board", boardMeshes, "player", playerMeshes);
+            console.log(
+                "%c\tall",
+                "font-family:consolas; color:green",
+                meshes,
+                "%cboard",
+                "font-family:consolas; color:green",
+                boardMeshes,
+                "%cplayer",
+                "font-family:consolas; color:green",
+                playerMeshes
+            );
             outlinePass.selectedObjects = meshes;
+
+            const statesArr: string[] = [
+                "highCard",
+                "onePair",
+                "twoPair",
+                "threeOfAKind",
+                "straight",
+                "flush",
+                "fullHouse",
+                "fourOfaKind",
+                "straightFlush",
+                "royaleFlush",
+            ];
+            react.SetState(
+                (function (input: string) {
+                    const words = input.split(/(?=[A-Z])/);
+
+                    // Convert each word to uppercase
+                    const uppercasedWords = words.map((word) => word.toUpperCase());
+
+                    // Join the words with "-"
+                    const result = uppercasedWords.join(" ");
+
+                    return result;
+                })(statesArr[stateResult.stateId])
+            );
+        }
+        function orderOnlines() {
+            let theta = -Math.PI;
+            clients.forEach((player) => {
+                let vec = new THREE.Vector3();
+                theta += (2 * Math.PI) / (clients.size + 1);
+                vec.setFromSphericalCoords(3.5, theta, Math.PI / 2);
+                vec.add(new THREE.Vector3(0, 0, -1.5));
+                player.position(vec, new THREE.Vector3(0, 0, 0));
+            });
         }
 
-        socket.on("i", (args: { op: string[] }) => {
-            for (const p of args.op) {
-                const xonline = new OnlinePlayer();
-                clients.set(p, xonline);
-                xonline.position(new THREE.Vector3(0, 2.5, -3.5));
+        socket.on("i", (args: { op: { [k: string]: string } }) => {
+            console.log(socket.id, args);
+            for (const p of Array.from(Object.entries(args.op))) {
+                const xonline = new OnlinePlayer(p[1]);
+                clients.set(p[0], xonline);
                 xonline.add(scene);
+                // reposition every player in a circle
             }
+            orderOnlines();
+            console.log("clients", clients);
             react.SetAction({
-                Ready: () => {
-                    socket.emit("r");
+                slider: undefined,
+                functions: {
+                    Ready: () => {
+                        socket.emit("r");
+                    },
                 },
             });
+            react.SetPList(
+                Array.from(clients.values()).map((v) => ({
+                    name: v.name,
+                    balance: v.money,
+                }))
+            );
         });
-        socket.on("n-p", (args: string) => {
-            const xonline = new OnlinePlayer();
-            clients.set(args, xonline);
-            xonline.position(new THREE.Vector3(0, 2.5, -3.5));
+        socket.on("n-p", (args: { id: string; n: string }) => {
+            const xonline = new OnlinePlayer(args.n);
+            clients.set(args.id, xonline);
             xonline.add(scene);
+            react.SetPList(
+                Array.from(clients.values()).map((v) => ({
+                    name: v.name,
+                    balance: v.money,
+                }))
+            );
+            orderOnlines();
         });
         socket.on("st", (args: { b: number[]; c1: number; c2: number }) => {
             console.log("[client]", "args.boardcards", args.b);
@@ -377,28 +491,46 @@ export default function ({
                 goldenCards();
             });
         });
-        socket.on("act", () => {
+        socket.on("act", (lastMoney) => {
+            ActionSets.raising.slider ? (ActionSets.raising.slider.min = ActionSets.raising.slider.defaultValue = lastMoney + 50) : 0;
             react.SetAction(ActionSets.default);
         });
-        socket.on(
-            "win",
-            (args: {
-                scores: {
-                    [key: string]: number;
-                };
-                money: number;
-            }) => {
-                // alert(str);
-                const winnerId = Object.keys(args.scores).reduce((a, b) => (args.scores[a] > args.scores[b] ? a : b));
-                const clientIsWinner = socket.id === winnerId;
-                toast.info(clientIsWinner ? "winner" : "losser");
-                localPlayer.money += args.money;
+        socket.on("bl", (args: { id: string; b: number }) => {
+            if (args.id === socket.id) {
+                localPlayer.money = args.b;
+                react.SetBalance(localPlayer.money);
+                ActionSets.raising.slider ? (ActionSets.raising.slider.max = localPlayer.money) : 0;
+            } else {
+                const xplayer = clients.get(args.id);
+                if (xplayer) {
+                    xplayer.money = args.b;
+                    react.SetPList(
+                        Array.from(clients.values()).map((v) => ({
+                            name: v.name,
+                            balance: v.money,
+                        }))
+                    );
+                }
             }
-        );
+        });
+        socket.on("win", (args: { [key: string]: number }) => {
+            // alert(str);
+            console.log("win 1");
+            const winnerId = Object.keys(args).reduce((a, b) => (args[a] > args[b] ? a : b));
+            console.log("win 2");
+            const clientIsWinner = socket.id === winnerId;
+            console.log("win 3");
+            console.log("clientIsWinner", clientIsWinner);
+            console.log(clientIsWinner ? "YOU WON" : `${clients.get(winnerId)?.name} WIN`);
+            react.setWinName(clientIsWinner ? "YOU WON" : `${clients.get(winnerId)?.name} WIN`);
+            setTimeout(() => {
+                react.setWinName(undefined);
+            }, 2000);
+        });
         socket.on("jnbl", (isJoinable: number) => {
             switch (isJoinable) {
                 case 0:
-                    socket.emit("n");
+                    socket.emit("n", name);
                     break;
                 case 1:
                     alert("game started");
@@ -415,6 +547,13 @@ export default function ({
                 xonline.dispose(scene);
             }
             clients.delete(args);
+            orderOnlines();
+            react.SetPList(
+                Array.from(clients.values()).map((v) => ({
+                    name: v.name,
+                    balance: v.money,
+                }))
+            );
         });
         socket.on("mse", (args: { id: string; x: number; y: number }) => {
             const xonline = clients.get(args.id);
@@ -435,7 +574,7 @@ export default function ({
 
     if (server) {
         const gui = new GUI();
-        for (const entry of Object.entries(server)) {
+        for (const entry of Object.entries(server.functions)) {
             gui.add({ [entry[0]]: entry[1] }, entry[0]);
         }
     }

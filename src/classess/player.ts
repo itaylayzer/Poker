@@ -2,7 +2,7 @@ import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 import * as THREE from "three";
 import { clamp } from "../scripts/functions";
 import { CardTextureManager } from "./textureManager";
-import { CCDIKSolver, IKS } from "three/examples/jsm/animation/CCDIKSolver.js";
+import { /*CCDIKSolver,*/ IKS } from "three/examples/jsm/animation/CCDIKSolver.js";
 
 export class Player {
     public cards: THREE.Mesh[];
@@ -58,14 +58,16 @@ export function BonesOBJID(object: THREE.Object3D) {
 
 export class OnlinePlayer extends Player {
     public body: THREE.Object3D;
-    public iksolver: CCDIKSolver;
+    public name: string;
+    // public iksolver: CCDIKSolver;
 
     public static textureManager: CardTextureManager;
     public static playerBody: THREE.Object3D;
-    constructor() {
+    constructor(name: string) {
         super();
+        this.name = name;
         this.body = SkeletonUtils.clone(OnlinePlayer.playerBody);
-        this.body.scale.multiplyScalar(0.02);
+        this.body.scale.multiplyScalar(0.013);
         this.body.rotateX(Math.PI / 2);
 
         function createMesh() {
@@ -82,13 +84,13 @@ export class OnlinePlayer extends Player {
 
         this.cards = [createMesh(), createMesh()];
         // console.warn("got here: a");
-        const iks = this.attachHands();
-        try {
-            this.iksolver = new CCDIKSolver(this.body as THREE.SkinnedMesh, iks);
-        } catch (e) {
-            console.error(e);
-        }
-        // console.warn("got here: b");
+        // const iks = this.attachHands();
+        // try {
+        //     this.iksolver = new CCDIKSolver(this.body as THREE.SkinnedMesh, iks);
+        // } catch (e) {
+        //     console.error(e);
+        // }
+        // // console.warn("got here: b");
     }
     movHands() {
         const rightHand = findBoneByName(this.body, "mixamorigRightHand");
@@ -136,13 +138,26 @@ export class OnlinePlayer extends Player {
 
         scene.add(this.body);
     }
-    position(vec: THREE.Vector3) {
-        this.body.position.copy(vec);
+    private cardsNewPos(index: number): THREE.Vector3 {
+        const vec = new THREE.Vector3();
+        vec.copy(this.body.position);
+        vec.z = -vec.z;
+        const addonVec = new THREE.Vector3((index * 2 - 1) / 10, 0 + (index * 2 - 1) / 100, 1);
+        addonVec.applyQuaternion(this.body.quaternion);
+        vec.add(addonVec);
+        return vec.clone();
+    }
+    position(position: THREE.Vector3, lookAt: THREE.Vector3) {
+        const yRotation = Math.atan2(lookAt.x - position.x, lookAt.z - position.z);
+        this.body.rotation.y = yRotation;
+        this.body.position.copy(position);
+
         for (const [index, card] of this.cards.entries()) {
-            card.position.copy(vec).add(new THREE.Vector3((index * 2 - 1) / 10, -2, 5 + (index * 2 - 1) / 100));
-            card.rotateZ((index * 2 - 1) / 10);
-            card.rotateX(-0.5);
-            card.scale.multiplyScalar(2);
+            card.position.copy(this.cardsNewPos(index));
+
+            card.lookAt(this.body.position.clone().add(new THREE.Vector3(0, 0, 4)));
+            card.rotation.z = (index * 2 - 1) / 10;
+            card.scale.set(1, 1, 1);
         }
     }
     handleLook(x: number, y: number) {
@@ -151,8 +166,6 @@ export class OnlinePlayer extends Player {
             // console.log("head bone is null", this.body.children);
             throw Error("head bone is null");
         }
-
-        const bodyPos = this.body.position.clone();
 
         const xRotation = new THREE.Vector2();
         const multiplyer = (0.5 - clamp(y - 0.5, 0, 0.5)) * 2;
@@ -163,13 +176,13 @@ export class OnlinePlayer extends Player {
 
         for (const [index, card] of this.cards.entries()) {
             card.position
-                .copy(bodyPos)
-                .add(new THREE.Vector3((index * 2 - 1) / 10, -2, 5 + (index * 2 - 1) / 100))
-                .add(new THREE.Vector3(xRotation.x, 0, 0));
+                .copy(this.cardsNewPos(index))
+                // .add(new THREE.Vector3((index * 2 - 1) / 10, -2, 5 + (index * 2 - 1) / 100))
+                .add(new THREE.Vector3(xRotation.x, 0, 0).applyQuaternion(this.body.quaternion));
         }
 
         this.movHands();
-        this.iksolver.update();
+        // this.iksolver.update();
     }
     dispose(scene: THREE.Scene) {
         for (const xmesh of this.cards) {
