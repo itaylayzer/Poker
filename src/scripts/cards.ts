@@ -1,6 +1,6 @@
 // credits and all are found in line 103 and below.
 // @coder-1t45 property!
-import { findAllMatchingValues, findLongestSequence } from "./functions";
+import { findAllMatchingValues, findLongestSequence, removeDuplicates } from "./functions";
 
 const _CONST_SHAPE_STEP = 100;
 const _CONST_VALUE_MAX = 13;
@@ -30,13 +30,14 @@ export const cardsBrain = function (nSortedCards: number[], objDuplicates: Map<s
             return listhasgetfalse("3");
         },
         straight(arr: number[] = nSortedCards): false | number[] {
-            let aceSpecialCase = [...arr].map((v) => {
+            const rmvDuplicates = removeDuplicates(arr, (v) => v % _CONST_SHAPE_STEP);
+            let aceSpecialCase = [...rmvDuplicates].map((v) => {
                 if (v % _CONST_SHAPE_STEP === 1) return Math.floor(v / _CONST_SHAPE_STEP) * _CONST_SHAPE_STEP + 14;
                 else return v;
             });
             aceSpecialCase.sort((a, b) => (a % _CONST_SHAPE_STEP) - (b % _CONST_SHAPE_STEP));
             const compareFN = (a: number, b: number) => (a % _CONST_SHAPE_STEP) - 1 === b % _CONST_SHAPE_STEP;
-            const best1 = findLongestSequence(arr, compareFN);
+            const best1 = findLongestSequence(rmvDuplicates, compareFN);
             const best2 = findLongestSequence(aceSpecialCase, compareFN);
 
             if (best2.length > 4) return best2;
@@ -228,7 +229,6 @@ export default {
                 return [searchCardsArr.length.toString(), searchCardsArr];
             })
         );
-        // console.log("objDuplicates", objDuplicates);
         const brain = cardsBrain(cardsArr, objDuplicates);
 
         const statesArr = [

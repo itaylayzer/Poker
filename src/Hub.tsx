@@ -13,14 +13,14 @@ function Hub(args: { SetName: React.Dispatch<React.SetStateAction<string | undef
                                 {/* <img src="iconclean.png" alt="" /> */}
                                 <h3>Poker</h3>
                             </div>
-                            {/* <h5
+                            <h5
                                 onClick={() => {
                                     document.location.href = "https://coder-1t45.github.io/";
                                 }}
                             >
                                 @coder-1t45
                                 <img src="smallheart.png" alt="" style={{ height: 25, width: 25, marginBlock: "auto", translate: "5px 5px" }} />
-                            </h5> */}
+                            </h5>
                         </div>
                         <input
                             type="text"
@@ -56,7 +56,13 @@ function Hub(args: { SetName: React.Dispatch<React.SetStateAction<string | undef
                     >
                         credits
                     </button>
-                    <button>settings</button>
+                    {/* <button
+                        onClick={() => {
+                            args.SetScreen(4);
+                        }}
+                    >
+                        settings
+                    </button> */}
                 </footer>
             </div>
         </>
@@ -66,9 +72,11 @@ function Hub(args: { SetName: React.Dispatch<React.SetStateAction<string | undef
 function Join({ name }: { name: string }) {
     return <App name={name} ip="coder-1t45-poker" />;
 }
+
 function Create({ name }: { name: string }) {
     return <App name={name} ip="coder-1t45-poker" create={true} />;
 }
+
 function Credits({ SetScreen }: { SetScreen: React.Dispatch<React.SetStateAction<number>> }) {
     return (
         <div className="page hub">
@@ -80,6 +88,34 @@ function Credits({ SetScreen }: { SetScreen: React.Dispatch<React.SetStateAction
                         Cards from <a href="https://g.co/kgs/kRstRo">Google Solitare</a> ripped by{" "}
                         <a href="https://www.spriters-resource.com/browser_games/googlesolitaire/sheet/147613/">DogToon64</a>
                     </p>
+                </div>
+                <br />
+                <br />
+                <button
+                    onClick={() => {
+                        SetScreen(0);
+                    }}
+                    style={{ minWidth: 175 }}
+                >
+                    BACK
+                </button>
+            </div>
+        </div>
+    );
+}
+function Settings({ SetScreen }: { SetScreen: React.Dispatch<React.SetStateAction<number>> }) {
+    return (
+        <div className="page hub">
+            <div className="center">
+                <div className="settings">
+                    <h2>Textures</h2>
+                    <p>
+                        <select name="" id="">
+                            <option value=""></option>
+                            <option value=""></option>
+                        </select>
+                    </p>
+                    <p>Cards Texture</p>
                 </div>
                 <br />
                 <br />
@@ -118,6 +154,9 @@ function Switch() {
             case 3:
                 // credit
                 return <Credits SetScreen={SetScreen} />;
+            case 4:
+                // credit
+                return <Settings SetScreen={SetScreen} />;
             default:
                 return <Hub SetName={SetName} SetScreen={SetScreen} />;
         }

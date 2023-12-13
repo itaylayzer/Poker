@@ -57,13 +57,11 @@ export class BoardManager {
     }
     private async createMesh(args?: number) {
         const texture = await (args === undefined ? this.textureManager.enemy() : this.textureManager.card(args % 100, Math.floor(args / 100)));
-        const material = new THREE.MeshPhongMaterial({
-            color: 0xffffff,
-            specular: 0x111111,
-            shininess: 10,
+        const material = new THREE.MeshToonMaterial({
             map: texture,
-            clipShadows: true,
+            color: 0xc0c0c0,
         });
+
         return new THREE.Mesh(new THREE.BoxGeometry(0.58 / 2, 0.78 / 2, 0.0), material);
     }
     public get CurrentMeshes() {

@@ -68,7 +68,8 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
             });
         }
         roundSet = new Set(ordered);
-        clients.get(Array.from(roundSet)[current % roundSet.size])?.socket.emit("act", 0);
+        const id = clients.get(Array.from(roundSet)[current % roundSet.size])?.id;
+        id ? sockets.all("act", { m: 0, id: id }) : 0;
 
         state = 0;
     }
@@ -114,7 +115,8 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
         ++state;
         current = 0;
         sockets.all("nxt");
-        clients.get(Array.from(roundSet)[(current + roundSet.size + roundSet.size) % roundSet.size])?.socket.emit("act", 0);
+        const id = clients.get(Array.from(roundSet)[(current + roundSet.size + roundSet.size) % roundSet.size])?.id;
+        id ? sockets.all("act", { m: 0, id: id }) : 0;
     }
     function actionDo(args: boolean | number, player: Player, lastMoney: number) {
         let oldRoundCoin = player.roundCoins;
@@ -163,7 +165,8 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
                 nxt_player_id = Array.from(roundSet)[(++current + roundSet.size) % roundSet.size];
                 nxt_player_p = clients.get(nxt_player_id);
             }
-            nxt_player_p?.socket.emit("act", player.roundCoins - nxt_player_p.roundCoins);
+
+            nxt_player_p ? sockets.all("act", { m: player.roundCoins - nxt_player_p.roundCoins, id: nxt_player_p.id }) : 0;
         } else {
             // Continue to next
             if (state >= 2 || ((alteastOnePlayerHaveBalance <= 1 || roundSet.size === 1) && ordered.size !== 1)) {

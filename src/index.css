@@ -87,6 +87,7 @@ div.gui div.actions-bar div.top p {
 
 div.gui div.actions-bar div.top[data-has=false] p {
   border-radius: 100px;
+  opacity: .5;
 }
 
 div.gui div.actions button {
@@ -477,6 +478,25 @@ div.page.hub div.center div.credits p a {
 
 div.page.hub div.center div.credits p a:hover {
   color: rgb(65, 131, 255)
+}
+
+
+div.page.hub div.center div.settings h2 {
+  text-align: center;
+  margin: 0;
+  font-size: 50px;
+  font-weight: 100;
+  color: white;
+}
+
+div.page.hub div.center div.settings p {
+  margin: 0;
+  color: white;
+  font-size: 30px;
+  font-style: italic;
+  color: rgb(255, 255, 255, 50%);
+  text-transform: lowercase;
+  font-weight: 100;
 }
 
 div.page.hub footer {

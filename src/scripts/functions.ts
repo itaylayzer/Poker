@@ -72,3 +72,35 @@ export function findAllMatchingValues<T>(arr: T[], manipulationFn: (a: T) => T):
         return searchArray.length > 1;
     });
 }
+
+/**
+ * Removes duplicate elements from an array based on a custom manipulation function.
+ *
+ * @function
+ * @name removeDuplicates
+ * @template T - The type of elements in the array.
+ *
+ * @param {T[]} arr - The array containing elements with potential duplicates.
+ * @param {(a: T) => T} manipulationFn - A custom function to manipulate each element before comparison.
+ * @returns {T[]} An array containing unique elements after applying the manipulation function.
+ *
+ * @example
+ * const inputArray = [2, 102, 3, 4, 5, 105];
+ * const resultArray = removeDuplicates(inputArray, (a) => a % 100);
+ * console.log(resultArray); // Output: [2, 102, 5, 105]
+ */
+export function removeDuplicates<T>(arr: T[], manipulationFn: (a: T) => T): T[] {
+    const uniqueElements: T[] = [];
+
+    for (const currentElement of arr) {
+        // Map the manipulated values of existing elements
+        const mappedManipulatedValues = uniqueElements.map((uniqueElement) => manipulationFn(uniqueElement));
+
+        // Check if the manipulated value of the current element is already present
+        if (!mappedManipulatedValues.includes(manipulationFn(currentElement))) {
+            uniqueElements.push(currentElement);
+        }
+    }
+
+    return uniqueElements;
+}

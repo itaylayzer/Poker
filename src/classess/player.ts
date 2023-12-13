@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { clamp } from "../scripts/functions";
 import { CardTextureManager } from "./textureManager";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
-import { CCDIKSolver, IKS, CCDIKHelper } from "three/examples/jsm/animation/CCDIKSolver.js";
+import { CCDIKSolver, IKS } from "three/examples/jsm/animation/CCDIKSolver.js";
 
 export class Player {
     public cards: THREE.Mesh[];
@@ -24,6 +24,11 @@ export class LocalPlayer extends Player {
     }
 }
 
+function copyPositionWithScale(source: THREE.Object3D, target: THREE.Object3D) {
+    const targetVec = source.worldToLocal(target.position.clone());
+    source.position.copy(targetVec);
+}
+
 export function findBoneByName(object: THREE.Object3D, boneName: string): THREE.Bone | null {
     if (object instanceof THREE.Bone) {
         if (object.name === boneName) {
@@ -41,40 +46,39 @@ export function findBoneByName(object: THREE.Object3D, boneName: string): THREE.
     return null;
 }
 
-export function BonesOBJID(object: THREE.Object3D) {
-    function iterate(object: THREE.Object3D, obj: { [key: string]: number }) {
-        for (const child of object.children) {
-            if (child as THREE.Bone) {
-                const bone = child as THREE.Bone;
-                obj[bone.name] = bone.id;
-            }
-            iterate(child, obj);
-        }
-    }
+export function BonesOBJID(object: THREE.Object3D): { [key: string]: number } {
+    const skMesh = object.children[0] as THREE.SkinnedMesh;
+    const bones = skMesh.skeleton.bones;
 
-    const obj: { [key: string]: number } = {};
-    iterate(object, obj);
-    return obj;
+    return Object.fromEntries(bones.map((v, i) => [v.name, i]));
 }
 
 export class OnlinePlayer extends Player {
     public body: THREE.Object3D;
     public name: string;
     public iksolver: CCDIKSolver;
-    public ccdikhelper: CCDIKHelper;
+    public iks: IKS[];
     public tcontrols: TransformControls;
     public static textureManager: CardTextureManager;
     public static playerBody: THREE.Object3D;
+    public myturn: boolean;
+    public update: () => void;
+    public static Best: OnlinePlayer | null = null;
     constructor(name: string, tcontrols: TransformControls) {
         super();
+        if (OnlinePlayer.Best === null) {
+            OnlinePlayer.Best = this;
+            globalThis.Best = OnlinePlayer.Best;
+            globalThis.Vector3 = THREE.Vector3;
+        }
+        this.update = () => {};
         this.tcontrols = tcontrols;
-
         this;
         this.name = name;
         this.body = SkeletonUtils.clone(OnlinePlayer.playerBody);
         this.body.scale.multiplyScalar(0.013);
         this.body.rotateX(Math.PI / 2);
-
+        this.myturn = false;
         function createMesh() {
             const texture = OnlinePlayer.textureManager.enemy();
             const material = new THREE.MeshPhongMaterial({
@@ -88,53 +92,73 @@ export class OnlinePlayer extends Player {
         }
 
         this.cards = [createMesh(), createMesh()];
-        console.warn("got here: a");
-        const iks = this.attachHands();
-        this.movHands();
-        console.log("iks", iks);
-        try {
-            console.log(this.body);
-            this.iksolver = new CCDIKSolver(this.body as THREE.SkinnedMesh, iks);
-            this.ccdikhelper = new CCDIKHelper(this.body as THREE.SkinnedMesh, iks, 0.01);
-        } catch (e) {
-            console.error(e);
-        }
-        // console.warn("got here: b");
+
+        this.iks = this.attachHands();
+        // console.log(this.body);
+        console.group("CCDIK");
+
+        const skMesh = this.body.children[0] as THREE.SkinnedMesh;
+        // console.log(this.iks);
+        this.iksolver = new CCDIKSolver(skMesh, this.iks);
+        // try {
+        //     this.ccdikhelper = this.iksolver.createHelper();
+        // } catch (er) {
+        //     console.error("ccdikhelper", er);
+        // }
+
+        console.groupEnd();
+        this.update = () => {
+            this.movHands(); // for creation of new Bone
+            for (const ik of this.iks) this.iksolver.updateOne(ik);
+        };
     }
     movHands() {
         const rightHand = findBoneByName(this.body, "mixamorigRightHand");
         const leftHand = findBoneByName(this.body, "mixamorigLeftHand");
-
         if (rightHand == null || leftHand == null) {
-            console.log("nulls");
-        } else {
-            this.tcontrols.attach(leftHand);
-            this.cards[0].matrix;
+            console.log("Hands not found");
+            return;
         }
+        // Right Hand
+        // Copy the position with scale for the right hand
+        copyPositionWithScale(rightHand, this.cards[0]);
+
+        // Copy the position with scale for the left hand
+        copyPositionWithScale(leftHand, this.cards[1]);
     }
     attachHands(): IKS[] {
-        this.movHands();
-        console.warn("got here: ab");
+        const skMesh = this.body.children[0] as THREE.SkinnedMesh;
+        console.group("IKS");
+        // console.log("model", this.body);
+
         const obj = BonesOBJID(this.body);
-        console.warn("got here: ac", obj);
+        // console.log("obj", obj);
+        skMesh.skeleton.bones[obj.mixamorigRightHand].parent = skMesh.skeleton.bones[obj.mixamorigRightForeArm];
+        skMesh.skeleton.bones[obj.mixamorigLeftHand].parent = skMesh.skeleton.bones[obj.mixamorigLeftForeArm];
+        // console.log(this.body.children);
         const rightIKS: IKS = {
             target: obj.mixamorigRightHand,
             effector: obj.mixamorigRightForeArm,
-            links: [{ index: obj.mixamorigRightShoulder }, { index: obj.mixamorigRightArm }, { index: obj.mixamorigRightForeArm }],
+            links: [{ index: obj.mixamorigRightArm }, { index: obj.mixamorigRightShoulder }],
         };
+        // console.log("rightIKS", rightIKS);
         const leftIKS: IKS = {
             target: obj.mixamorigLeftHand,
-            effector: obj.mixamorigLefttForeArm,
-            links: [{ index: obj.mixamorigLeftShoulder }, { index: obj.mixamorigLeftArm }, { index: obj.mixamorigLefttForeArm }],
+            effector: obj.mixamorigLeftForeArm,
+            links: [{ index: obj.mixamorigLeftArm }, { index: obj.mixamorigLeftShoulder }],
         };
-        console.warn("got here: ad");
-        return [rightIKS];
+        // console.log("leftIKS", leftIKS);
+        console.groupEnd();
+        return [rightIKS, leftIKS];
     }
     add(scene: THREE.Scene) {
         for (const xmesh of this.cards) {
             scene.add(xmesh);
         }
 
+        if (this.body as THREE.Mesh) {
+            // console.log("yes");
+        } else console.log(this.body);
         scene.add(this.body);
     }
     private cardsNewPos(index: number): THREE.Vector3 {
@@ -179,9 +203,6 @@ export class OnlinePlayer extends Player {
                 // .add(new THREE.Vector3((index * 2 - 1) / 10, -2, 5 + (index * 2 - 1) / 100))
                 .add(new THREE.Vector3(xRotation.x, 0, 0).applyQuaternion(this.body.quaternion));
         }
-
-        this.movHands();
-        this.iksolver.update();
     }
     dispose(scene: THREE.Scene) {
         for (const xmesh of this.cards) {
@@ -190,55 +211,3 @@ export class OnlinePlayer extends Player {
         scene.remove(this.body);
     }
 }
-
-`
-[72]: EndyMesh
-player.ts:43 [73]: mixamorigHips
-player.ts:43 [74]: mixamorigSpine
-player.ts:43 [75]: mixamorigSpine1
-player.ts:43 [76]: mixamorigSpine2
-player.ts:43 [77]: mixamorigRightShoulder
-player.ts:43 [78]: mixamorigRightArm
-player.ts:43 [79]: mixamorigRightForeArm
-player.ts:43 [80]: mixamorigRightHand
-player.ts:43 [81]: mixamorigRightHandThumb1
-player.ts:43 [82]: mixamorigRightHandThumb2
-player.ts:43 [83]: mixamorigRightHandThumb3
-player.ts:43 [84]: mixamorigRightHandThumb4
-player.ts:43 [85]: mixamorigRightHandIndex1
-player.ts:43 [86]: mixamorigRightHandIndex2
-player.ts:43 [87]: mixamorigRightHandIndex3
-player.ts:43 [88]: mixamorigRightHandIndex4
-player.ts:43 [89]: mixamorigRightHandMiddle1
-player.ts:43 [90]: mixamorigRightHandMiddle2
-player.ts:43 [91]: mixamorigRightHandMiddle3
-player.ts:43 [92]: mixamorigRightHandMiddle4
-player.ts:43 [93]: mixamorigNeck
-player.ts:43 [94]: mixamorigHead
-player.ts:43 [95]: mixamorigHeadTop_End
-player.ts:43 [96]: mixamorigLeftShoulder
-player.ts:43 [97]: mixamorigLeftArm
-player.ts:43 [98]: mixamorigLeftForeArm
-player.ts:43 [99]: mixamorigLeftHand
-player.ts:43 [100]: mixamorigLeftHandIndex1
-player.ts:43 [101]: mixamorigLeftHandIndex2
-player.ts:43 [102]: mixamorigLeftHandIndex3
-player.ts:43 [103]: mixamorigLeftHandIndex4
-player.ts:43 [104]: mixamorigLeftHandMiddle1
-player.ts:43 [105]: mixamorigLeftHandMiddle2
-player.ts:43 [106]: mixamorigLeftHandMiddle3
-player.ts:43 [107]: mixamorigLeftHandMiddle4
-player.ts:43 [108]: mixamorigLeftHandThumb1
-player.ts:43 [109]: mixamorigLeftHandThumb2
-player.ts:43 [110]: mixamorigLeftHandThumb3
-player.ts:43 [111]: mixamorigLeftHandThumb4
-player.ts:43 [112]: mixamorigLeftUpLeg
-player.ts:43 [113]: mixamorigLeftLeg
-player.ts:43 [114]: mixamorigLeftFoot
-player.ts:43 [115]: mixamorigLeftToeBase
-player.ts:43 [116]: mixamorigLeftToe_End
-player.ts:43 [117]: mixamorigRightUpLeg
-player.ts:43 [118]: mixamorigRightLeg
-player.ts:43 [119]: mixamorigRightFoot
-player.ts:43 [120]: mixamorigRightToeBase
-player.ts:43 [121]: mixamorigRightToe_End`;
