@@ -9,7 +9,7 @@ function Hub(args: {
     const [isJoin, SetIsJoin] = useState<boolean>(false);
     return (
         <>
-            <Title>Poker Hub</Title>
+            <Title>Poker | by Coder-1t45</Title>
             <div className="page hub">
                 <div className="center aside">
                     <div>
@@ -24,7 +24,12 @@ function Hub(args: {
                                 }}
                             >
                                 @coder-1t45
-                                <img src="smallheart.png" alt="" style={{ height: 25, width: 25, marginBlock: "auto", translate: "5px 5px" }} />
+                                <img
+                                    src="smallheart.png"
+                                    alt=""
+                                    style={{ height: 25, width: 25, paddingInline: 10, marginBlock: "auto", translate: "0px 5px" }}
+                                />
+                                14.12.23
                             </h5>
                         </div>
                         <input

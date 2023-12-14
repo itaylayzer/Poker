@@ -9,6 +9,7 @@ interface Player {
     balance: number;
     c1: number;
     c2: number;
+    order: number;
     ready: boolean;
 }
 
@@ -43,9 +44,6 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
         },
     };
 
-    function GetTurnBalances() {
-        return Object.fromEntries(Array.from(clients.values()).map((v) => [v.id, v.roundCoins - turnBalance]));
-    }
     function EqualRoundMoney(num: number) {
         const lastPlayers = Array.from(clients.values()).filter((v) => roundSet.has(v.id) && v.balance > 0);
         return lastPlayers.filter((v) => v.roundCoins === num).length == lastPlayers.length;
@@ -218,14 +216,15 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
                     ready: false,
                     balance: 1000,
                     name: name,
+                    order: clients.size,
                 };
-                const oldp = Object.fromEntries(Array.from(clients.values()).map((player) => [player.id, player.name]));
+                const oldp = Object.fromEntries(Array.from(clients.values()).map((player) => [player.id, { n: player.name, o: player.order }]));
                 socket.emit("i", {
                     op: oldp,
                 });
                 clients.set(socket.id, player);
                 ordered.add(socket.id);
-                sockets.except(socket.id, "n-p", { id: socket.id, n: name });
+                sockets.except(socket.id, "n-p", { id: socket.id, n: name, o: player.order });
             });
             socket.on("r", () => {
                 gameStarted = true;

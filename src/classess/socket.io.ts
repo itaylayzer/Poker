@@ -1,13 +1,16 @@
-import Peer, { DataConnection } from "peerjs";
+import Peer, { DataConnection, PeerOptions } from "peerjs";
 import { TranslateCode, code } from "./code.env";
+
+const obj: PeerOptions = {
+    debug: 0,
+    secure: false,
+    // port: 9000,
+    // host: "127.0.0.1",
+};
+
 export function io(uri: string, maxtime: number = 5000): Promise<Socket> {
     return new Promise((resolve, reject) => {
-        const peer = new Peer({
-            debug: 0,
-            secure: false,
-            port: 9000,
-            host: "127.0.0.1",
-        });
+        const peer = new Peer(obj);
 
         // Listen for the 'open' event, which indicates that the Peer connection is open.
         peer.on("open", (id) => {
@@ -106,22 +109,14 @@ export class Server {
         var _code: string = "";
         var _socket: Peer;
         if (!!options?.id) {
-            _socket = new Peer(options.id, {
-                debug: 0,
-                port: 9000,
-                host: "127.0.0.1",
-            });
+            _socket = new Peer(options.id, obj);
         } else {
             var error = true;
 
             while (error) {
                 try {
                     _code = code();
-                    _socket = new Peer(TranslateCode(_code), {
-                        debug: 0,
-                        port: 9000,
-                        host: "127.0.0.1",
-                    });
+                    _socket = new Peer(TranslateCode(_code), obj);
                     error = false;
                 } catch {
                     error = true;

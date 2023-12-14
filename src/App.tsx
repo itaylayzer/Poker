@@ -22,11 +22,11 @@ function App({ name, data, socket }: { data: loadedAssets; name: string; socket:
     const [playerList, SetPList] = useState<Array<{ name: string; balance: number; balanceTurn: number }>>([]);
     const [balance, SetBalance] = useState<number>(1000);
     const [turnBalance, SetTurnBalance] = useState<number>(0);
-
+    const [sumMoney, SetSumMoney] = useState<number>(0);
     const [state, SetState] = useState<string>();
     const [winName, setWinName] = useState<string | undefined>();
     useEffect(() => {
-        document.title = "Poker";
+        document.title = "Poker | by Coder-1t45";
         game(name, {
             assets: data,
             socket: socket.socket,
@@ -38,6 +38,7 @@ function App({ name, data, socket }: { data: loadedAssets; name: string; socket:
                 SetState,
                 SetPList,
                 setWinName,
+                SetSumMoney,
             },
         });
     }, []);
@@ -110,6 +111,7 @@ function App({ name, data, socket }: { data: loadedAssets; name: string; socket:
                     )}
                 </div>
                 <p className="code">{socket.code}</p>
+                {sumMoney ? <p className="sumMoney">{sumMoney}</p> : <></>}
                 <div className="information">
                     <img src="donald.png" alt="" />
                     <div className="inner">

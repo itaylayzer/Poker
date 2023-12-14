@@ -3,6 +3,8 @@ import * as THREE from "three";
 import { clamp } from "../scripts/functions";
 import { CardTextureManager } from "./textureManager";
 import { CCDIKSolver, IKS } from "three/examples/jsm/animation/CCDIKSolver.js";
+import { Font } from "three/examples/jsm/loaders/FontLoader.js";
+import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 export class Player {
     public cards: THREE.Mesh[];
     public money: number;
@@ -124,28 +126,44 @@ export class OnlinePlayer extends Player {
     public name: string;
     public static textureManager: CardTextureManager;
     public static playerBody: THREE.Object3D;
+    public static font: Font;
     public myturn: boolean;
-    public update: () => void;
+    public update: (camera: THREE.Camera) => void;
+    public fontMesh: THREE.Mesh;
+    public order: number;
 
     public static Best: OnlinePlayer | null = null;
-    constructor(name: string) {
+    constructor(name: string, order: number) {
         super();
         this.update = () => {};
-        this;
+        this.order = order;
         this.name = name;
         this.body = SkeletonUtils.clone(OnlinePlayer.playerBody);
         this.body.scale.multiplyScalar(0.013);
         this.body.rotateX(Math.PI / 2);
         this.myturn = false;
         const skMesh = this.body.children[0] as THREE.SkinnedMesh;
-        skMesh.material = new THREE.MeshPhongMaterial({ color: 0xffffff, specular: 0x111111, shininess: 5 });
+        const mat = new THREE.MeshPhongMaterial({ color: 0xffffff, specular: 0x111111, shininess: 5 });
+        skMesh.material = mat;
         skMesh.receiveShadow = true;
         skMesh.castShadow = true;
-
+        this.fontMesh = new THREE.Mesh(
+            new TextGeometry(name, {
+                font: OnlinePlayer.font,
+                depth: 0.1,
+                size: 5,
+                height: 1,
+            }),
+            mat
+        );
         this.cards = [];
 
-        this.update = () => {
+        this.update = (camera: THREE.Camera) => {
             this.movHands();
+            this.fontMesh.lookAt(camera.position);
+            this.fontMesh.rotation.x = Math.PI / 2;
+            this.fontMesh.rotation.z = 0;
+            // this.fontMesh.rotation.y = Math.atan2(camera.position.x - this.fontMesh.position.x, camera.position.z - this.fontMesh.position.z);
         };
     }
     startCards(scene: THREE.Scene) {
@@ -206,6 +224,7 @@ export class OnlinePlayer extends Player {
     }
     add(scene: THREE.Scene) {
         scene.add(this.body);
+        scene.add(this.fontMesh);
     }
     position(position: THREE.Vector3, lookAt: THREE.Vector3) {
         const yRotation = Math.atan2(lookAt.x - position.x, lookAt.z - position.z);
@@ -219,6 +238,11 @@ export class OnlinePlayer extends Player {
             card.rotation.x = Math.PI;
             card.rotation.y = yRotation;
         }
+        this.fontMesh.position
+            .copy(this.body.position)
+            .add(new THREE.Vector3(0, 0, 5.3))
+            .add(new THREE.Vector3(-1, 0, 0).applyQuaternion(this.body.quaternion).multiplyScalar(this.name.length / 15));
+        this.fontMesh.scale.set(0.04, 0.04, 0.00001);
     }
     handleLook(x: number, y: number) {
         const bone = findBoneByName(this.body, "mixamorigHead");

@@ -10,7 +10,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { FXAAShader } from "three/addons/shaders/FXAAShader.js";
 import { CardTextureManager } from "../classess/textureManager";
 import { Socket } from "../classess/socket.io";
-import { GUI } from "dat.gui";
+// import { GUI } from "dat.gui";
 import { BoardManager } from "../classess/boardManager";
 import { LocalPlayer, OnlinePlayer } from "../classess/player";
 import { toast } from "react-toastify";
@@ -24,6 +24,7 @@ export const urls: loadedURLS = {
     green: "textures/green500x500.png",
     google: "textures/google.png",
     skeleton: "fbx/endy-rigged.fbx",
+    roboto: "fonts/Roboto_Bold.typeface.json",
 };
 export type CustomLight = {
     color: THREE.ColorRepresentation;
@@ -42,7 +43,7 @@ export default function (
     {
         assets,
         socket,
-        server,
+        // server,
         react,
     }: {
         assets: loadedAssets;
@@ -52,6 +53,7 @@ export default function (
             SetAction: React.Dispatch<ActionList | undefined>;
             SetBalance: React.Dispatch<number>;
             SetTurnBalance: React.Dispatch<number>;
+            SetSumMoney: React.Dispatch<number>;
             SetState: React.Dispatch<string>;
             SetPList: React.Dispatch<
                 {
@@ -75,7 +77,7 @@ export default function (
     scene.background = new THREE.Color("#115f13");
 
     const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 10000);
-    camera.position.set(0, -3.5, 3);
+    camera.position.set(0, -3.5, 3.5);
     camera.rotation.x = 1;
     const cameraStartedQuaternion = new THREE.Quaternion().copy(camera.quaternion);
     const cardTextures = new CardTextureManager(assets.textures.google);
@@ -86,6 +88,7 @@ export default function (
         outlinePassBodies: OutlinePass,
         boardManager: BoardManager,
         rgbSplitter: ShaderPass,
+        // @ts-ignore
         bloomPass: UnrealBloomPass,
         vigneteShader: ShaderPass;
 
@@ -97,6 +100,7 @@ export default function (
 
     OnlinePlayer.playerBody = assets.fbx.skeleton;
     OnlinePlayer.textureManager = cardTextures;
+    OnlinePlayer.font = assets.fonts.roboto;
     const localPlayer = new LocalPlayer(camera).add(scene);
     let sumMoney: number = 0;
     const camRotation = new THREE.Vector2(0, 1);
@@ -235,7 +239,10 @@ export default function (
             };
 
             if (socket) {
-                socket.emit("mse", mousePrecent);
+                socket.emit("mse", {
+                    x: (window.innerWidth - event.clientX) / window.innerWidth,
+                    y: event.clientY / window.innerHeight,
+                });
             }
 
             const multiplyer = (0.5 - clamp(mousePrecent.y - 0.5, 0, 0.5)) * 2;
@@ -300,11 +307,11 @@ export default function (
                 .then((v) => {
                     const material1 = new THREE.MeshToonMaterial({
                         map: v[0],
-                        color: 0xc0c0c0,
+                        color: 0xa0a0a0,
                     });
                     const material2 = new THREE.MeshToonMaterial({
                         map: v[1],
-                        color: 0xc0c0c0,
+                        color: 0xa0a0a0,
                     });
                     const sprite = new THREE.Mesh(new THREE.BoxGeometry(0.58 / 2, 0.78 / 2, 0.0), material1);
                     const spriteA = new THREE.Mesh(new THREE.BoxGeometry(0.58 / 2, 0.78 / 2, 0.0), material2);
@@ -433,7 +440,7 @@ export default function (
                     },
                 });
             outlinePassCards.selectedObjects = cardsmeshes;
-            outlinePassBodies.selectedObjects = onlinesmeshes;
+            outlinePassBodies.selectedObjects = onlinesmeshes; //[onlinesmeshes, Array.from(clients.values()).map((v) => v.fontMesh as THREE.Object3D)].flat(2);
         }
         function goldenCards() {
             console.group("Golden Cards");
@@ -493,19 +500,19 @@ export default function (
         }
         function orderOnlines() {
             let theta = -Math.PI;
-            clients.forEach((player) => {
+            for (const player of Array.from(clients.values()).sort((a, b) => a.order - b.order)) {
                 let vec = new THREE.Vector3();
                 theta += (2 * Math.PI) / (clients.size + 1);
                 vec.setFromSphericalCoords(3.5, theta, Math.PI / 2);
                 vec.add(new THREE.Vector3(0, 0, -1.5));
                 player.position(vec, new THREE.Vector3(0, 0, 0));
-            });
+            }
         }
-        socket.on("i", (args: { op: { [k: string]: string } }) => {
+        socket.on("i", (args: { op: { [k: string]: { n: string; o: number } } }) => {
             // console.log(socket.id, args);
             try {
                 for (const p of Array.from(Object.entries(args.op))) {
-                    const xonline = new OnlinePlayer(p[1]);
+                    const xonline = new OnlinePlayer(p[1].n, p[1].o);
                     clients.set(p[0], xonline);
                     xonline.add(scene);
                     // reposition every player in a circle
@@ -532,8 +539,8 @@ export default function (
                 console.error(e);
             }
         });
-        socket.on("n-p", (args: { id: string; n: string }) => {
-            const xonline = new OnlinePlayer(args.n);
+        socket.on("n-p", (args: { id: string; n: string; o: number }) => {
+            const xonline = new OnlinePlayer(args.n, args.o);
             clients.set(args.id, xonline);
             xonline.add(scene);
             react.SetPList(
@@ -580,6 +587,7 @@ export default function (
         });
         socket.on("bl", (args: { id: string; b: number; c: number; s: number }) => {
             sumMoney = args.s;
+            react.SetSumMoney(sumMoney);
             if (args.id === socket.id) {
                 localPlayer.money = args.b;
                 localPlayer.turnbalance = args.c;
@@ -665,12 +673,12 @@ export default function (
     _socketInitiate();
     // Update function
 
-    if (server) {
-        const gui = new GUI();
-        for (const entry of Object.entries(server.functions)) {
-            gui.add({ [entry[0]]: entry[1] }, entry[0]);
-        }
-    }
+    // if (server) {
+    //     const gui = new GUI();
+    //     for (const entry of Object.entries(server.functions)) {
+    //         gui.add({ [entry[0]]: entry[1] }, entry[0]);
+    //     }
+    // }
 
     renderer.setAnimationLoop(() => {
         // rotate camera
@@ -696,7 +704,7 @@ export default function (
         }
 
         localPlayer.update();
-        for (const ikUpdate of Array.from(clients.values()).map((v) => v.update)) ikUpdate();
+        for (const ikUpdate of Array.from(clients.values()).map((v) => v.update)) ikUpdate(camera);
         for (const update of [...updates]) update();
     });
 }
