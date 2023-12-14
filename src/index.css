@@ -16,25 +16,57 @@ div.gui div.player-list {
   top: 8%;
   left: 0%;
   z-index: 2;
-  user-select: none;
+
   display: flex;
   flex-direction: column;
   gap: 7px;
 }
 
+
 div.gui div.player-list div.player-info {
+  user-select: none;
   background-color: rgb(10, 10, 10, 90%);
   display: flex;
   color: white;
-  font-size: 20px;
+  font-size: 25px;
   text-transform: uppercase;
   font-family: monospace;
-  gap: 10px;
+  gap: 0px;
   margin: 0;
-  opacity: 0.5;
-  padding: 5px 50px 5px 20px;
+  opacity: 0.7;
+  padding: 0px;
+  padding-left: 15px;
   border-top-right-radius: 100px;
   border-bottom-right-radius: 100px;
+}
+
+div.gui div.player-list div.player-info div.outline {
+  display: inline-block;
+  display: flex;
+  gap: 10px;
+  padding: 0px;
+
+  padding-right: 15px;
+  border-top-right-radius: 100px;
+  border-bottom-right-radius: 100px;
+}
+
+div.gui div.player-list div.player-info div.outline.black {
+  background-color: rgb(10, 10, 10, 90%);
+}
+
+div.gui div.player-list div.player-info div.outline.gold {
+  background-color: rgb(255, 215, 0, 90%);
+}
+
+div.gui div.player-list div.player-info p.balance {
+  color: gold;
+  text-shadow: 0px 0px 5px gold;
+}
+
+div.gui div.player-list div.player-info div.outline.gold p.balance {
+  color: white;
+  text-shadow: 0px 0px 5px white;
 }
 
 div.gui div.player-list div.player-info p {
@@ -42,10 +74,7 @@ div.gui div.player-list div.player-info p {
   padding: 0;
 }
 
-div.gui div.player-list div.player-info p.balance {
-  color: gold;
-  text-shadow: 0px 0px 5px gold;
-}
+
 
 div.gui {
   position: absolute;
@@ -56,9 +85,23 @@ div.gui {
   z-index: 2;
 }
 
+div.gui p.code {
+  position: absolute;
+  bottom: 0%;
+  left: 50%;
+  translate: -50%;
+  z-index: 2;
+  color: white;
+  font-family: monospace;
+  font-weight: 900;
+  font-size: 35px;
+  text-shadow: 0px 0px 4px black, 0px 0px 4px black, 0px 0px 4px black, 0px 0px 4px black;
+  width: fit-content;
+}
+
 div.gui div.actions-bar {
   position: absolute;
-  bottom: 8%;
+  bottom: 9%;
   left: 50%;
   translate: -50%;
   z-index: 2;

@@ -2,31 +2,29 @@ import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 import * as THREE from "three";
 import { clamp } from "../scripts/functions";
 import { CardTextureManager } from "./textureManager";
-import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { CCDIKSolver, IKS } from "three/examples/jsm/animation/CCDIKSolver.js";
-
 export class Player {
     public cards: THREE.Mesh[];
     public money: number;
+    public turnbalance: number;
     public cardsvalues: [number, number];
 
     constructor() {
         this.cards = [];
         this.cardsvalues = [0, 0];
         this.money = 1000;
-    }
-}
-export class LocalPlayer extends Player {
-    public cardsValToMesh: Map<number, THREE.Mesh>;
-    constructor() {
-        super();
-        this.cardsValToMesh = new Map();
+        this.turnbalance = 0;
     }
 }
 
-function copyPositionWithScale(source: THREE.Object3D, target: THREE.Object3D) {
-    const targetVec = source.worldToLocal(target.position.clone());
-    source.position.copy(targetVec);
+function copyPositionWithScale(source: THREE.Object3D, target: THREE.Object3D, offset: THREE.Vector3) {
+    const targetVec = source.localToWorld(source.position.clone()).add(offset);
+    target.position.copy(targetVec);
+}
+
+function copyPositionWithScale2(source: THREE.Object3D, target: THREE.Object3D, offset: THREE.Vector3) {
+    const p = source.worldToLocal(target.position.clone().add(offset));
+    source.position.copy(p);
 }
 
 export function findBoneByName(object: THREE.Object3D, boneName: string): THREE.Bone | null {
@@ -53,32 +51,104 @@ export function BonesOBJID(object: THREE.Object3D): { [key: string]: number } {
     return Object.fromEntries(bones.map((v, i) => [v.name, i]));
 }
 
+export class LocalPlayer extends Player {
+    public body: THREE.Object3D;
+    public cardsValToMesh: Map<number, THREE.Mesh>;
+    public update: () => void;
+
+    public iksolver: CCDIKSolver;
+    public iks: IKS[];
+
+    constructor(camera: THREE.Camera) {
+        super();
+        this.update = () => {};
+        this.body = SkeletonUtils.clone(OnlinePlayer.playerBody);
+        this.cardsValToMesh = new Map();
+        this.body.scale.multiplyScalar(0.01);
+        this.body.rotateX(Math.PI / 2);
+        this.body.rotateY(Math.PI);
+        this.body.position.copy(camera.position).add(new THREE.Vector3(0, -0.1, -3));
+
+        this.iks = this.attachHands();
+
+        const skMesh = this.body.children[0] as THREE.SkinnedMesh;
+        this.iksolver = new CCDIKSolver(skMesh, this.iks);
+
+        this.update = () => {
+            if (this.movHands()) this.iksolver.update();
+        };
+    }
+    add(scene: THREE.Scene) {
+        scene.add(this.body);
+        return this;
+    }
+
+    movHands() {
+        const rightHand = findBoneByName(this.body, "mixamorigRightHand");
+        const leftHand = findBoneByName(this.body, "mixamorigLeftHand");
+        if (rightHand == null || leftHand == null || this.cards.length < 2) {
+            return false;
+        }
+        // Right Hand
+        // Copy the position with scale for the right hand
+        const offset = new THREE.Vector3(0, -0.32, 0);
+        copyPositionWithScale2(rightHand, this.cards[0], offset);
+
+        // Copy the position with scale for the left hand
+        copyPositionWithScale2(leftHand, this.cards[1], offset);
+        return true;
+    }
+    attachHands() {
+        const skMesh = this.body.children[0] as THREE.SkinnedMesh;
+
+        const obj = BonesOBJID(this.body);
+        skMesh.skeleton.bones[obj.mixamorigRightHand].parent = skMesh.skeleton.bones[obj.mixamorigRightForeArm];
+        skMesh.skeleton.bones[obj.mixamorigLeftHand].parent = skMesh.skeleton.bones[obj.mixamorigLeftForeArm];
+        const rightIKS: IKS = {
+            target: obj.mixamorigRightHand,
+            effector: obj.mixamorigRightForeArm,
+            links: [{ index: obj.mixamorigRightArm }, { index: obj.mixamorigRightShoulder }],
+        };
+        const leftIKS: IKS = {
+            target: obj.mixamorigLeftHand,
+            effector: obj.mixamorigLeftForeArm,
+            links: [{ index: obj.mixamorigLeftArm }, { index: obj.mixamorigLeftShoulder }],
+        };
+        console.groupEnd();
+        return [rightIKS, leftIKS];
+    }
+}
+
 export class OnlinePlayer extends Player {
     public body: THREE.Object3D;
     public name: string;
-    public iksolver: CCDIKSolver;
-    public iks: IKS[];
-    public tcontrols: TransformControls;
     public static textureManager: CardTextureManager;
     public static playerBody: THREE.Object3D;
     public myturn: boolean;
     public update: () => void;
+
     public static Best: OnlinePlayer | null = null;
-    constructor(name: string, tcontrols: TransformControls) {
+    constructor(name: string) {
         super();
-        if (OnlinePlayer.Best === null) {
-            OnlinePlayer.Best = this;
-            globalThis.Best = OnlinePlayer.Best;
-            globalThis.Vector3 = THREE.Vector3;
-        }
         this.update = () => {};
-        this.tcontrols = tcontrols;
         this;
         this.name = name;
         this.body = SkeletonUtils.clone(OnlinePlayer.playerBody);
         this.body.scale.multiplyScalar(0.013);
         this.body.rotateX(Math.PI / 2);
         this.myturn = false;
+        const skMesh = this.body.children[0] as THREE.SkinnedMesh;
+        skMesh.material = new THREE.MeshPhongMaterial({ color: 0xffffff, specular: 0x111111, shininess: 5 });
+        skMesh.receiveShadow = true;
+        skMesh.castShadow = true;
+
+        this.cards = [];
+
+        this.update = () => {
+            this.movHands();
+        };
+    }
+    startCards(scene: THREE.Scene) {
         function createMesh() {
             const texture = OnlinePlayer.textureManager.enemy();
             const material = new THREE.MeshPhongMaterial({
@@ -90,103 +160,69 @@ export class OnlinePlayer extends Player {
             });
             return new THREE.Mesh(new THREE.BoxGeometry(0.58 / 2, 0.78 / 2, 0.0), material);
         }
-
-        this.cards = [createMesh(), createMesh()];
-
-        this.iks = this.attachHands();
-        // console.log(this.body);
-        console.group("CCDIK");
-
-        const skMesh = this.body.children[0] as THREE.SkinnedMesh;
-        // console.log(this.iks);
-        this.iksolver = new CCDIKSolver(skMesh, this.iks);
-        // try {
-        //     this.ccdikhelper = this.iksolver.createHelper();
-        // } catch (er) {
-        //     console.error("ccdikhelper", er);
-        // }
-
-        console.groupEnd();
-        this.update = () => {
-            this.movHands(); // for creation of new Bone
-            for (const ik of this.iks) this.iksolver.updateOne(ik);
-        };
-    }
-    movHands() {
-        const rightHand = findBoneByName(this.body, "mixamorigRightHand");
-        const leftHand = findBoneByName(this.body, "mixamorigLeftHand");
-        if (rightHand == null || leftHand == null) {
-            console.log("Hands not found");
-            return;
-        }
-        // Right Hand
-        // Copy the position with scale for the right hand
-        copyPositionWithScale(rightHand, this.cards[0]);
-
-        // Copy the position with scale for the left hand
-        copyPositionWithScale(leftHand, this.cards[1]);
-    }
-    attachHands(): IKS[] {
-        const skMesh = this.body.children[0] as THREE.SkinnedMesh;
-        console.group("IKS");
-        // console.log("model", this.body);
-
-        const obj = BonesOBJID(this.body);
-        // console.log("obj", obj);
-        skMesh.skeleton.bones[obj.mixamorigRightHand].parent = skMesh.skeleton.bones[obj.mixamorigRightForeArm];
-        skMesh.skeleton.bones[obj.mixamorigLeftHand].parent = skMesh.skeleton.bones[obj.mixamorigLeftForeArm];
-        // console.log(this.body.children);
-        const rightIKS: IKS = {
-            target: obj.mixamorigRightHand,
-            effector: obj.mixamorigRightForeArm,
-            links: [{ index: obj.mixamorigRightArm }, { index: obj.mixamorigRightShoulder }],
-        };
-        // console.log("rightIKS", rightIKS);
-        const leftIKS: IKS = {
-            target: obj.mixamorigLeftHand,
-            effector: obj.mixamorigLeftForeArm,
-            links: [{ index: obj.mixamorigLeftArm }, { index: obj.mixamorigLeftShoulder }],
-        };
-        // console.log("leftIKS", leftIKS);
-        console.groupEnd();
-        return [rightIKS, leftIKS];
-    }
-    add(scene: THREE.Scene) {
+        this.cards.push(...[createMesh(), createMesh()]);
         for (const xmesh of this.cards) {
+            xmesh.scale.set(2, 2, 2);
             scene.add(xmesh);
         }
-
-        if (this.body as THREE.Mesh) {
-            // console.log("yes");
-        } else console.log(this.body);
-        scene.add(this.body);
     }
-    private cardsNewPos(index: number): THREE.Vector3 {
-        const vec = new THREE.Vector3();
-        vec.copy(this.body.position);
-        vec.z = -vec.z;
-        const addonVec = new THREE.Vector3((index * 2 - 1) / 10, 0 + (index * 2 - 1) / 100, 1);
-        addonVec.applyQuaternion(this.body.quaternion);
-        vec.add(addonVec);
-        return vec.clone();
+    bonesObj() {
+        return Object.fromEntries((this.body.children[0] as THREE.SkinnedMesh).skeleton.bones.map((v) => [v.name, v]));
+    }
+    movHands() {
+        const bones = this.bonesObj();
+
+        const rightHand = bones["mixamorigRightHand"];
+        const leftHand = bones["mixamorigLeftHand"];
+        if (rightHand == null || leftHand == null || this.cards.length < 2) {
+            return;
+        }
+
+        // Set Rotation Block
+        bones["mixamorigLeftForeArm"].rotation.set(0.607, 0.6707, 1.49);
+        bones["mixamorigLeftHand"].rotation.set(0.37, 0.3, 0.79);
+        bones["mixamorigRightShoulder"].rotation.set(1.6, 0.39, 1.6);
+        bones["mixamorigRightArm"].rotation.set(0.48, 6.3, 0);
+        bones["mixamorigRightForeArm"].rotation.set(6.283, 5.8, 4.5);
+        bones["mixamorigRightHand"].rotation.set(0.86, 0, 5.3);
+
+        // Right Hand
+        // Copy the position with scale for the right hand
+        this.cardsPos();
+    }
+    cardsPos() {
+        const bones = this.bonesObj();
+
+        const rightHand = bones["mixamorigRightHand"];
+        const leftHand = bones["mixamorigLeftHand"];
+        if (rightHand == null || leftHand == null || this.cards.length < 2) {
+            return;
+        }
+        const offset = new THREE.Vector3(0, 0, -0.2);
+        const vec = new THREE.Vector3(0, 0, 1).applyQuaternion(this.body.quaternion);
+        offset.add(vec.multiplyScalar(-0.3));
+        copyPositionWithScale(rightHand, this.cards[0], offset);
+        copyPositionWithScale(leftHand, this.cards[1], offset);
+    }
+    add(scene: THREE.Scene) {
+        scene.add(this.body);
     }
     position(position: THREE.Vector3, lookAt: THREE.Vector3) {
         const yRotation = Math.atan2(lookAt.x - position.x, lookAt.z - position.z);
         this.body.rotation.y = yRotation;
         this.body.position.copy(position);
 
+        this.cardsPos();
         for (const [index, card] of this.cards.entries()) {
-            card.position.copy(this.cardsNewPos(index));
-
-            card.lookAt(this.body.position.clone().add(new THREE.Vector3(0, 0, 4)));
+            // card.lookAt(this.body.position.clone().add(this.body.up.clone().multiplyScalar(3)));
             card.rotation.z = (index * 2 - 1) / 10;
-            card.scale.set(1, 1, 1);
+            card.rotation.x = Math.PI;
+            card.rotation.y = yRotation;
         }
     }
     handleLook(x: number, y: number) {
         const bone = findBoneByName(this.body, "mixamorigHead");
         if (!bone) {
-            console.log("head bone is null", this.body.children);
             throw Error("head bone is null");
         }
 
@@ -196,13 +232,6 @@ export class OnlinePlayer extends Player {
         xRotation.x = (x - 0.5) * multiplyer;
         bone.quaternion.setFromEuler(new THREE.Euler(xRotation.y, 0, 0));
         bone.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), xRotation.x);
-
-        for (const [index, card] of this.cards.entries()) {
-            card.position
-                .copy(this.cardsNewPos(index))
-                // .add(new THREE.Vector3((index * 2 - 1) / 10, -2, 5 + (index * 2 - 1) / 100))
-                .add(new THREE.Vector3(xRotation.x, 0, 0).applyQuaternion(this.body.quaternion));
-        }
     }
     dispose(scene: THREE.Scene) {
         for (const xmesh of this.cards) {

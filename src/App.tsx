@@ -8,17 +8,21 @@ import "react-toastify/dist/ReactToastify.css";
 import Slider from "./components/Slider";
 import { Socket, io } from "./classess/socket.io";
 import AsyncTask from "./components/AsyncTask";
+import { TranslateCode } from "./classess/code.env";
 
 type connectionResultType = {
     socket: Socket;
+    code: string;
     server: ActionList | undefined;
 };
 
 function App({ name, data, socket }: { data: loadedAssets; name: string; socket: connectionResultType }) {
     // game usage
     const [actions, SetAction] = useState<ActionList | undefined>(undefined);
-    const [playerList, SetPList] = useState<Array<{ name: string; balance: number }>>([]);
+    const [playerList, SetPList] = useState<Array<{ name: string; balance: number; balanceTurn: number }>>([]);
     const [balance, SetBalance] = useState<number>(1000);
+    const [turnBalance, SetTurnBalance] = useState<number>(0);
+
     const [state, SetState] = useState<string>();
     const [winName, setWinName] = useState<string | undefined>();
     useEffect(() => {
@@ -30,6 +34,7 @@ function App({ name, data, socket }: { data: loadedAssets; name: string; socket:
             react: {
                 SetAction,
                 SetBalance,
+                SetTurnBalance,
                 SetState,
                 SetPList,
                 setWinName,
@@ -41,18 +46,20 @@ function App({ name, data, socket }: { data: loadedAssets; name: string; socket:
             <div className="gameContainer"></div>
             <div className="gui">
                 {!!winName ? <p className="winner">{winName}</p> : <></>}
-                {playerList.length > 0 ? (
-                    <div className="player-list">
-                        {playerList.map((player) => (
-                            <div className="player-info">
-                                <p>{player.name}</p>
-                                <p className="balance">{player.balance}</p>
+
+                <div className="player-list">
+                    {playerList.map((player) => (
+                        <div className="player-info">
+                            <div className="outline gold">
+                                <div className="outline black">
+                                    <p>{player.name}</p>
+                                    <p className="balance">{player.balance}</p>
+                                </div>
+                                <p className="balance">{player.balanceTurn}</p>
                             </div>
-                        ))}
-                    </div>
-                ) : (
-                    <></>
-                )}
+                        </div>
+                    ))}
+                </div>
 
                 <div className="actions-bar">
                     {state !== undefined ? (
@@ -102,13 +109,14 @@ function App({ name, data, socket }: { data: loadedAssets; name: string; socket:
                         <></>
                     )}
                 </div>
-
+                <p className="code">{socket.code}</p>
                 <div className="information">
                     <img src="donald.png" alt="" />
                     <div className="inner">
                         <p>{name}</p>
                         <hr />
                         <p className="balance">{balance}</p>
+                        <p>{turnBalance}</p>
                     </div>
                 </div>
             </div>
@@ -128,34 +136,30 @@ export default function (args: { name: string; ip?: string; create?: boolean }) 
     return (
         <AsyncTask<connectionResultType>
             task={() => {
-                let connectionResult: Promise<{
-                    socket: Socket;
-                    server: ActionList | undefined;
-                }>;
+                const deafultIP = "coder-1t45-trial-poker";
+                let connectionResult: Promise<connectionResultType>;
                 if (args.ip === undefined) {
-                    connectionResult = ios("coder-1t45-trial-poker");
+                    connectionResult = new Promise((resolve) => {
+                        ios(deafultIP).then((v) => resolve({ server: v.server, socket: v.socket, code: "" }));
+                    });
                 } else {
                     if (args.create === true) {
                         connectionResult = new Promise((resolve) => {
                             const xactions = run({
-                                uri: args.ip,
-                                onOpen(_uri) {
-                                    if (_uri !== args.ip) {
-                                        alert("Uri is diffrent");
-                                        console.log("_uri", _uri, "uri", args.ip);
-                                    }
+                                onOpen(_uri, server) {
                                     io(_uri).then((sock) => {
-                                        resolve({ socket: sock, server: xactions });
+                                        resolve({ socket: sock, server: xactions, code: server.Code });
                                     });
                                 },
                             });
                         });
                     } else {
                         connectionResult = new Promise((resolve) => {
-                            io(args.ip as string).then((v) => {
+                            io(TranslateCode(args.ip as string)).then((v) => {
                                 resolve({
                                     server: undefined,
                                     socket: v,
+                                    code: args.ip as string,
                                 });
                             });
                         });

@@ -4,9 +4,10 @@ import Packet from "./Packet.tsx";
 import "./index.css";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import Hub from "./Hub.tsx";
+import CharacterView from "./CharacterView.tsx";
 const router = createBrowserRouter([
     {
-        path: "/Poker/",
+        path: "/Poker/Tick",
         element: <App name="casualUser" />,
     },
     {
@@ -14,8 +15,12 @@ const router = createBrowserRouter([
         element: <Packet />,
     },
     {
-        path: "/Poker/Hub",
+        path: "/Poker/",
         element: <Hub />,
+    },
+    {
+        path: "/Poker/Char",
+        element: <CharacterView />,
     },
 ]);
 

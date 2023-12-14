@@ -1,7 +1,12 @@
 import { useState } from "react";
 import Title from "./components/Title";
 import App from "./App";
-function Hub(args: { SetName: React.Dispatch<React.SetStateAction<string | undefined>>; SetScreen: React.Dispatch<React.SetStateAction<number>> }) {
+function Hub(args: {
+    SetName: React.Dispatch<React.SetStateAction<string | undefined>>;
+    SetScreen: React.Dispatch<React.SetStateAction<number>>;
+    SetCode: React.Dispatch<React.SetStateAction<string | undefined>>;
+}) {
+    const [isJoin, SetIsJoin] = useState<boolean>(false);
     return (
         <>
             <Title>Poker Hub</Title>
@@ -29,21 +34,55 @@ function Hub(args: { SetName: React.Dispatch<React.SetStateAction<string | undef
                                 args.SetName(e.currentTarget.value);
                             }}
                         />
+                        {isJoin ? (
+                            <input
+                                type="text"
+                                placeholder="Enter Code"
+                                onChange={(e) => {
+                                    args.SetCode(e.currentTarget.value);
+                                }}
+                            />
+                        ) : (
+                            <></>
+                        )}
                         <div className="buttons">
-                            <button
-                                onClick={() => {
-                                    args.SetScreen(1);
-                                }}
-                            >
-                                JOIN
-                            </button>
-                            <button
-                                onClick={() => {
-                                    args.SetScreen(2);
-                                }}
-                            >
-                                CREATE
-                            </button>
+                            {isJoin ? (
+                                <>
+                                    {" "}
+                                    <button
+                                        onClick={() => {
+                                            SetIsJoin(false);
+                                        }}
+                                    >
+                                        BACK
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            args.SetScreen(1);
+                                        }}
+                                    >
+                                        JOIN
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    {" "}
+                                    <button
+                                        onClick={() => {
+                                            SetIsJoin(true);
+                                        }}
+                                    >
+                                        JOIN
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            args.SetScreen(2);
+                                        }}
+                                    >
+                                        CREATE
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                     <img src="cards.png" className="hubanimcards" alt="" />
@@ -69,8 +108,8 @@ function Hub(args: { SetName: React.Dispatch<React.SetStateAction<string | undef
     );
 }
 
-function Join({ name }: { name: string }) {
-    return <App name={name} ip="coder-1t45-poker" />;
+function Join({ name, code }: { name: string; code: string }) {
+    return <App name={name} ip={code} />;
 }
 
 function Create({ name }: { name: string }) {
@@ -134,16 +173,19 @@ function Settings({ SetScreen }: { SetScreen: React.Dispatch<React.SetStateActio
 
 function Switch() {
     const [name, SetName] = useState<string>();
+    const [code, SetCode] = useState<string>();
     const [screen, SetScreen] = useState<number>(0);
 
     if (name !== undefined) {
         switch (screen) {
             case 1:
-                return <Join name={name} />;
+                if (code != undefined) return <Join name={name} code={code} />;
+                else alert("YOU NEED TO ENTER CODE FIRST");
+                return <Hub SetName={SetName} SetScreen={SetScreen} SetCode={SetCode} />;
             case 2:
                 return <Create name={name} />;
             default:
-                return <Hub SetName={SetName} SetScreen={SetScreen} />;
+                return <Hub SetName={SetName} SetScreen={SetScreen} SetCode={SetCode} />;
         }
     } else {
         if ([1, 2].includes(screen)) {
@@ -158,7 +200,7 @@ function Switch() {
                 // credit
                 return <Settings SetScreen={SetScreen} />;
             default:
-                return <Hub SetName={SetName} SetScreen={SetScreen} />;
+                return <Hub SetName={SetName} SetScreen={SetScreen} SetCode={SetCode} />;
         }
     }
 }

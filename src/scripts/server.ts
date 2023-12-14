@@ -16,6 +16,7 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
     const clients = new Map<string, Player>();
     const ordered = new Set<string>();
     let roundSet = new Set<string>();
+    let turnBalance: number = 0;
     let gameStarted: boolean = false;
     let current: number = 0;
     let boardCards: number[] | undefined = undefined;
@@ -41,6 +42,10 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
             }
         },
     };
+
+    function GetTurnBalances() {
+        return Object.fromEntries(Array.from(clients.values()).map((v) => [v.id, v.roundCoins - turnBalance]));
+    }
     function EqualRoundMoney(num: number) {
         const lastPlayers = Array.from(clients.values()).filter((v) => roundSet.has(v.id) && v.balance > 0);
         return lastPlayers.filter((v) => v.roundCoins === num).length == lastPlayers.length;
@@ -98,7 +103,7 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
         const winnerPlayer = clients.get(winnerId);
         if (winnerPlayer) {
             winnerPlayer.balance += sumMoney;
-            sockets.all("bl", { id: winnerId, b: winnerPlayer.balance });
+            sockets.all("bl", { id: winnerId, b: winnerPlayer.balance, c: 0, s: 0 });
         }
 
         for (const player of clients.values()) {
@@ -107,11 +112,12 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
         // console.log("socket.all(win)");
         sockets.all("win", playerScores);
         setTimeout(() => {
-            initRound(); //set timout of a 5 seconds, later it will the player judge
             round++;
+            initRound(); //set timout of a 5 seconds, later it will the player judge
         }, 1 * 1000);
     }
     function nextPlayerAct() {
+        turnBalance = 0;
         ++state;
         current = 0;
         sockets.all("nxt");
@@ -170,10 +176,12 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
         } else {
             // Continue to next
             if (state >= 2 || ((alteastOnePlayerHaveBalance <= 1 || roundSet.size === 1) && ordered.size !== 1)) {
+                // End Round
                 function movingNext() {
                     setTimeout(() => {
                         if (state >= 2) {
                             checkWin();
+
                             return;
                         }
                         ++state;
@@ -184,6 +192,8 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
                 }
                 movingNext();
             } else {
+                // End Turn
+                turnBalance = player.roundCoins;
                 nextPlayerAct();
             }
         }
@@ -221,8 +231,8 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
                 gameStarted = true;
                 player.ready = true;
                 if (Array.from(clients.values()).filter((v) => v.ready).length === clients.size) {
-                    initRound();
                     round = 0;
+                    initRound();
                 }
             });
             socket.on("act", (args: boolean | number) => {
@@ -232,7 +242,14 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
                 ++current;
 
                 // send the player his balance
-                sockets.all("bl", { id: socket.id, b: player.balance });
+                sockets.all("bl", {
+                    id: socket.id,
+                    b: player.balance,
+                    c: player.roundCoins - turnBalance,
+                    s: Array.from(clients.values())
+                        .map((v) => v.roundCoins)
+                        .reduce((a, b) => a + b),
+                });
                 // see whats next for the game
                 finishedTurn(player);
                 // console.log("%c[server]", "color:red", "current after", current);
@@ -262,6 +279,9 @@ export default function run(options?: { uri?: string; onOpen?: (id: string, this
             },
             close: () => {
                 xserver.stop();
+            },
+            code: () => {
+                xserver.Code;
             },
         },
     } as ActionList;

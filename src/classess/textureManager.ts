@@ -84,9 +84,9 @@ export class CardTextureManager {
 
                     // Convert the canvas to a Three.js texture
                     const finalTexture = new THREE.CanvasTexture(canvas);
-                    canvas.style.zIndex = "100";
-                    canvas.setAttribute("cv", `${value} ${shape}`);
-                    document.body.appendChild(canvas);
+                    // canvas.style.zIndex = "100";
+                    // canvas.setAttribute("cv", `${value} ${shape}`);
+                    // document.body.appendChild(canvas);
                     resolve(finalTexture);
                 })
                 .catch((error) => {

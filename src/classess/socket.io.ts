@@ -1,4 +1,5 @@
 import Peer, { DataConnection } from "peerjs";
+import { TranslateCode, code } from "./code.env";
 export function io(uri: string, maxtime: number = 5000): Promise<Socket> {
     return new Promise((resolve, reject) => {
         const peer = new Peer({
@@ -92,6 +93,7 @@ export class Socket {
 export class Server {
     private socket: Peer;
     private _id: string;
+    private code: string;
     public whenCloseF: () => void;
     constructor(
         EachSocket?: (s: Socket, server: Server) => void,
@@ -101,19 +103,34 @@ export class Server {
             OnClose?: () => void;
         }
     ) {
-        if (options && options.id) {
-            this.socket = new Peer(options.id, {
+        var _code: string = "";
+        var _socket: Peer;
+        if (!!options?.id) {
+            _socket = new Peer(options.id, {
                 debug: 0,
                 port: 9000,
                 host: "127.0.0.1",
             });
         } else {
-            this.socket = new Peer({
-                debug: 0,
-                port: 9000,
-                host: "127.0.0.1",
-            });
+            var error = true;
+
+            while (error) {
+                try {
+                    _code = code();
+                    _socket = new Peer(TranslateCode(_code), {
+                        debug: 0,
+                        port: 9000,
+                        host: "127.0.0.1",
+                    });
+                    error = false;
+                } catch {
+                    error = true;
+                }
+            }
         }
+        this.code = _code;
+        // @ts-ignore
+        this.socket = _socket;
         this._id = this.socket.id;
 
         this.whenCloseF = options?.OnClose ?? (() => {});
@@ -139,5 +156,8 @@ export class Server {
     }
     public get id() {
         return this._id;
+    }
+    public get Code() {
+        return this.code;
     }
 }

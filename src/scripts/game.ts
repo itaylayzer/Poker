@@ -16,14 +16,12 @@ import { LocalPlayer, OnlinePlayer } from "../classess/player";
 import { toast } from "react-toastify";
 import { clamp } from "./functions";
 import CardsAPI from "./cards";
-import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { RGBShiftShader } from "three/addons/shaders/RGBShiftShader.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { VignetteShader } from "three/examples/jsm/shaders/VignetteShader.js";
 
 export const urls: loadedURLS = {
     green: "textures/green500x500.png",
-    gray: "textures/bricks500x500x2.png",
     google: "textures/google.png",
     skeleton: "fbx/endy-rigged.fbx",
 };
@@ -53,11 +51,13 @@ export default function (
         react: {
             SetAction: React.Dispatch<ActionList | undefined>;
             SetBalance: React.Dispatch<number>;
+            SetTurnBalance: React.Dispatch<number>;
             SetState: React.Dispatch<string>;
             SetPList: React.Dispatch<
                 {
                     name: string;
                     balance: number;
+                    balanceTurn: number;
                 }[]
             >;
             setWinName: React.Dispatch<string | undefined>;
@@ -82,7 +82,8 @@ export default function (
 
     let composer: EffectComposer,
         effectFXAA: ShaderPass,
-        outlinePass: OutlinePass,
+        outlinePassCards: OutlinePass,
+        outlinePassBodies: OutlinePass,
         boardManager: BoardManager,
         rgbSplitter: ShaderPass,
         bloomPass: UnrealBloomPass,
@@ -90,14 +91,14 @@ export default function (
 
     const localLight = new THREE.SpotLight(0xfffff, 100, 1000, Math.PI / 5, 1);
     // scene.add(localLight);
-    const localPlayer = new LocalPlayer();
     const raycaster = new THREE.Raycaster();
     const clients = new Map<string, OnlinePlayer>();
     // const raycaster = new THREE.Raycaster();
 
     OnlinePlayer.playerBody = assets.fbx.skeleton;
     OnlinePlayer.textureManager = cardTextures;
-
+    const localPlayer = new LocalPlayer(camera).add(scene);
+    let sumMoney: number = 0;
     const camRotation = new THREE.Vector2(0, 1);
     const updates: (() => void)[] = [];
     let val: number = 0;
@@ -163,6 +164,8 @@ export default function (
         });
 
         const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), material);
+        groundMesh.receiveShadow = true;
+        groundMesh.castShadow = true;
         scene.add(groundMesh);
     }
     function _createLights() {
@@ -370,14 +373,23 @@ export default function (
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
 
-        outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
+        outlinePassCards = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
 
-        outlinePass.edgeStrength = 5.0;
-        outlinePass.edgeGlow = 0; //0.5;
-        outlinePass.edgeThickness = 1;
-        outlinePass.pulsePeriod = 0;
-        outlinePass.visibleEdgeColor = new THREE.Color("white");
-        outlinePass.hiddenEdgeColor = new THREE.Color("00000000"); //"190a05");
+        outlinePassCards.edgeStrength = 5.0;
+        outlinePassCards.edgeGlow = 0; //0.5;
+        outlinePassCards.edgeThickness = 1;
+        outlinePassCards.pulsePeriod = 0;
+        outlinePassCards.visibleEdgeColor = new THREE.Color("white");
+        outlinePassCards.hiddenEdgeColor = new THREE.Color("white"); //"190a05");
+
+        outlinePassBodies = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
+
+        outlinePassBodies.edgeStrength = 5.0;
+        outlinePassBodies.edgeGlow = 0; //0.5;
+        outlinePassBodies.edgeThickness = 1;
+        outlinePassBodies.pulsePeriod = 0;
+        outlinePassBodies.visibleEdgeColor = new THREE.Color("white");
+        outlinePassBodies.hiddenEdgeColor = new THREE.Color("black"); //"190a05");
 
         rgbSplitter = new ShaderPass(RGBShiftShader);
         rgbSplitter.uniforms["amount"].value = 0.0015 / 4;
@@ -389,7 +401,8 @@ export default function (
         vigneteShader.uniforms["darkness"].value = 1.05;
         // composer.addPass(bloomPass);
         // composer.addPass(rgbSplitter);
-        composer.addPass(outlinePass);
+        composer.addPass(outlinePassBodies);
+        composer.addPass(outlinePassCards);
         composer.addPass(vigneteShader);
 
         const outputPass = new OutputPass();
@@ -419,7 +432,8 @@ export default function (
                         whatSize: Array.from(clients.values()).filter((v) => v.myturn === true).length,
                     },
                 });
-            outlinePass.selectedObjects = [...onlinesmeshes, ...cardsmeshes];
+            outlinePassCards.selectedObjects = cardsmeshes;
+            outlinePassBodies.selectedObjects = onlinesmeshes;
         }
         function goldenCards() {
             console.group("Golden Cards");
@@ -487,54 +501,51 @@ export default function (
                 player.position(vec, new THREE.Vector3(0, 0, 0));
             });
         }
-        function getTransformsControls() {
-            const transformControls = new TransformControls(camera, renderer.domElement);
-            transformControls.size = 0.75;
-            // transformControls.showX = false;
-            transformControls.space = "world";
-            // transformControls.attach( OOI.target_hand_l );
-            scene.add(transformControls);
-            return transformControls;
-        }
-
         socket.on("i", (args: { op: { [k: string]: string } }) => {
             // console.log(socket.id, args);
-            for (const p of Array.from(Object.entries(args.op))) {
-                const xonline = new OnlinePlayer(p[1], getTransformsControls());
-                clients.set(p[0], xonline);
-                xonline.add(scene);
-                // reposition every player in a circle
-            }
-            orderOnlines();
-            // console.log("clients", clients);
-            react.SetAction({
-                slider: undefined,
-                functions: {
-                    Ready: () => {
-                        socket.emit("r");
+            try {
+                for (const p of Array.from(Object.entries(args.op))) {
+                    const xonline = new OnlinePlayer(p[1]);
+                    clients.set(p[0], xonline);
+                    xonline.add(scene);
+                    // reposition every player in a circle
+                }
+
+                // console.log("clients", clients);
+                react.SetAction({
+                    slider: undefined,
+                    functions: {
+                        Ready: () => {
+                            socket.emit("r");
+                        },
                     },
-                },
-            });
-            react.SetPList(
-                Array.from(clients.values()).map((v) => ({
-                    name: v.name,
-                    balance: v.money,
-                }))
-            );
+                });
+                react.SetPList(
+                    Array.from(clients.values()).map((v) => ({
+                        name: v.name,
+                        balance: v.money,
+                        balanceTurn: v.turnbalance,
+                    }))
+                );
+                orderOnlines();
+            } catch (e) {
+                console.error(e);
+            }
         });
         socket.on("n-p", (args: { id: string; n: string }) => {
-            const xonline = new OnlinePlayer(args.n, getTransformsControls());
+            const xonline = new OnlinePlayer(args.n);
             clients.set(args.id, xonline);
             xonline.add(scene);
             react.SetPList(
                 Array.from(clients.values()).map((v) => ({
                     name: v.name,
                     balance: v.money,
+                    balanceTurn: v.turnbalance,
                 }))
             );
             orderOnlines();
         });
-        socket.on("st", (args: { b: number[]; c1: number; c2: number }) => {
+        socket.on("st", (args: { b: number[]; c1: number; c2: number; rn: number }) => {
             // console.log("[client]", "args.boardcards", args.b);
             boardManager = new BoardManager(args.b, scene, cardTextures);
             boardManager.OpenRound().then(() => updateSelected());
@@ -543,6 +554,9 @@ export default function (
             _userCards(args.c1, args.c2).then((v) => {
                 updates.push(v);
             });
+            for (const xonline of clients.values()) {
+                xonline.startCards(scene);
+            }
         });
         socket.on("nxt", () => {
             boardManager.Next().then(() => {
@@ -561,21 +575,28 @@ export default function (
                 ActionSets.raising.slider ? (ActionSets.raising.slider.min = ActionSets.raising.slider.defaultValue = args.m + 50) : 0;
                 react.SetAction(ActionSets.default);
             }
+
             updateSelected();
         });
-        socket.on("bl", (args: { id: string; b: number }) => {
+        socket.on("bl", (args: { id: string; b: number; c: number; s: number }) => {
+            sumMoney = args.s;
             if (args.id === socket.id) {
                 localPlayer.money = args.b;
+                localPlayer.turnbalance = args.c;
                 react.SetBalance(localPlayer.money);
+                react.SetTurnBalance(localPlayer.turnbalance);
                 ActionSets.raising.slider ? (ActionSets.raising.slider.max = localPlayer.money) : 0;
             } else {
                 const xplayer = clients.get(args.id);
+
                 if (xplayer) {
                     xplayer.money = args.b;
+                    xplayer.turnbalance = args.c;
                     react.SetPList(
                         Array.from(clients.values()).map((v) => ({
                             name: v.name,
                             balance: v.money,
+                            balanceTurn: v.turnbalance,
                         }))
                     );
                 }
@@ -621,6 +642,7 @@ export default function (
                 Array.from(clients.values()).map((v) => ({
                     name: v.name,
                     balance: v.money,
+                    balanceTurn: v.turnbalance,
                 }))
             );
         });
@@ -673,6 +695,7 @@ export default function (
             // camera.rotateOnWorldAxis(new THREE.Vector3(1, , 0), camRotation.x);
         }
 
+        localPlayer.update();
         for (const ikUpdate of Array.from(clients.values()).map((v) => v.update)) ikUpdate();
         for (const update of [...updates]) update();
     });
