@@ -1,5 +1,5 @@
 // credits and all are found in line 103 and below.
-// @coder-1t45 property!
+// @itaylayzer property!
 import { findAllMatchingValues, findLongestSequence, removeDuplicates } from "./functions";
 
 const _CONST_SHAPE_STEP = 100;

@@ -9,7 +9,7 @@ function Hub(args: {
     const [isJoin, SetIsJoin] = useState<boolean>(false);
     return (
         <>
-            <Title>Poker | by Coder-1t45</Title>
+            <Title>Poker | by itaylayzer</Title>
             <div className="page hub">
                 <div className="center aside">
                     <div>
@@ -20,10 +20,10 @@ function Hub(args: {
                             </div>
                             <h5
                                 onClick={() => {
-                                    document.location.href = "https://coder-1t45.github.io/";
+                                    document.location.href = "https://itaylayzer.github.io/";
                                 }}
                             >
-                                @coder-1t45
+                                @itaylayzer
                                 <img
                                     src="smallheart.png"
                                     alt=""
@@ -118,7 +118,7 @@ function Join({ name, code }: { name: string; code: string }) {
 }
 
 function Create({ name }: { name: string }) {
-    return <App name={name} ip="coder-1t45-poker" create={true} />;
+    return <App name={name} ip="itaylayzer-poker" create={true} />;
 }
 
 function Credits({ SetScreen }: { SetScreen: React.Dispatch<React.SetStateAction<number>> }) {

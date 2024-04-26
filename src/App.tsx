@@ -26,7 +26,7 @@ function App({ name, data, socket }: { data: loadedAssets; name: string; socket:
     const [state, SetState] = useState<string>();
     const [winName, setWinName] = useState<string | undefined>();
     useEffect(() => {
-        document.title = "Poker | by Coder-1t45";
+        document.title = "Poker | by itaylayzer";
         game(name, {
             assets: data,
             socket: socket.socket,
@@ -138,7 +138,7 @@ export default function (args: { name: string; ip?: string; create?: boolean }) 
     return (
         <AsyncTask<connectionResultType>
             task={() => {
-                const deafultIP = "coder-1t45-trial-poker";
+                const deafultIP = "itaylayzer-trial-poker";
                 let connectionResult: Promise<connectionResultType>;
                 if (args.ip === undefined) {
                     connectionResult = new Promise((resolve) => {
